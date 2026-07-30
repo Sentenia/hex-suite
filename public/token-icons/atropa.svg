@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ATROPA">
+  <defs>
+    <radialGradient id="atropaBg" cx="24%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#ff6be9"/>
+      <stop offset="45%" stop-color="#7b35ff"/>
+      <stop offset="100%" stop-color="#070513"/>
+    </radialGradient>
+    <linearGradient id="atropaLeaf" x1="12" y1="52" x2="52" y2="10" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0bff9c"/>
+      <stop offset="1" stop-color="#1fd5ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#atropaBg)"/>
+  <circle cx="32" cy="32" r="29" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+  <path d="M18 45 31.5 12 46 45" fill="none" stroke="#f2ece1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24 35h16" fill="none" stroke="#f2ece1" stroke-width="5" stroke-linecap="round"/>
+  <path d="M41 16c-1.5 9.3-7 15.2-16.5 17.7C24.8 24 30.6 18.1 41 16z" fill="url(#atropaLeaf)" opacity=".95"/>
+  <circle cx="47" cy="45" r="5" fill="#ff2cb4" stroke="#f2ece1" stroke-width="2"/>
+</svg>

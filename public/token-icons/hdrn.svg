@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="HDRN">
+  <defs>
+    <radialGradient id="hdrnBg" cx="24%" cy="82%" r="88%">
+      <stop offset="0%" stop-color="#37d5ff"/>
+      <stop offset="45%" stop-color="#5d63ff"/>
+      <stop offset="100%" stop-color="#8d35ff"/>
+    </radialGradient>
+    <filter id="hdrnShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#12072d" flood-opacity=".34"/>
+    </filter>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#hdrnBg)"/>
+  <circle cx="32" cy="32" r="29" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.5"/>
+  <g filter="url(#hdrnShadow)" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 8 52 20.5 48 45.5 32 56 16 45.5 12 20.5 32 8z"/>
+    <path d="M12 20.5h40M16 45.5h32M32 8v48"/>
+    <path d="M32 8 16 45.5M32 8l16 37.5M12 20.5 32 56l20-35.5"/>
+    <path d="M16 45.5 32 24l16 21.5"/>
+  </g>
+</svg>

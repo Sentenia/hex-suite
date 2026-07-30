@@ -1,0 +1,22 @@
+{
+  "name": "hex-suite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HEX & PulseChain portfolio tracker: stakes, holdings, LPs, farms, NFTs, and onchain-reconstructed net worth history. Fully client-side.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "ethers": "^6.13.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}
