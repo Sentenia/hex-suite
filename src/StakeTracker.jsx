@@ -4836,8 +4836,7 @@ export default function StakeTracker({ view = "portfolio" }) {
     }
 
     lines.push("");
-    lines.push("NFA. Run your own numbers:");
-    lines.push(window.location.origin);
+    lines.push(`NFA. Check your stats too 👉 ${window.location.origin}`);
 
     return lines.join("\n");
   }
