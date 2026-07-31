@@ -1252,6 +1252,35 @@ dd {
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent));
 }
 
+.moonMathThinPool {
+  color: #ffb45c;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.moonMathPegButton {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.moonMathPegButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.moonMathPegButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Per-coin holdings strip: how much you hold, worth now, worth at target. */
 .moonMathHoldings {
   display: flex;
@@ -1420,12 +1449,52 @@ dd {
 .portfolioHoldingRow {
   --accent: #9a8fb8;
   display: grid;
-  grid-template-columns: minmax(190px, 1.3fr) repeat(3, minmax(110px, 0.7fr));
+  grid-template-columns: minmax(190px, 1.3fr) repeat(3, minmax(110px, 0.7fr)) 58px;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
   background: rgba(6, 9, 20, 0.78);
   border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.portfolioHoldingRow:hover {
+  background: rgba(14, 20, 38, 0.9);
+}
+
+.holdingRowActions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* Bare icons, no boxes — they brighten on hover and squish on press. */
+.tokenRowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #9a8fb8;
+  cursor: pointer;
+  transition: color 120ms ease, transform 80ms ease;
+}
+
+.tokenRowAction:hover {
+  color: #f3edff;
+}
+
+.tokenRowAction:active {
+  transform: scale(0.85);
+}
+
+.tokenRowAction.isCopied {
+  color: #2fe08a;
+  filter: drop-shadow(0 0 6px rgba(47, 224, 138, 0.6));
+}
+
+.tokenRowAction.danger:hover {
+  color: #ff9d9d;
 }
 
 .portfolioHoldingRow .marketTokenIdentity img {
@@ -1478,8 +1547,22 @@ dd {
   cursor: pointer;
 }
 
+.tokenActionMenu button {
+  transition: background 120ms ease, transform 80ms ease;
+}
+
 .tokenActionMenu button:hover {
-  background: rgba(214, 199, 255, 0.12);
+  background: rgba(214, 199, 255, 0.16);
+}
+
+.tokenActionMenu button:active {
+  transform: scale(0.97);
+  background: rgba(214, 199, 255, 0.22);
+}
+
+.tokenActionMenu button.isCopied {
+  color: #2fe08a;
+  background: rgba(47, 224, 138, 0.12);
 }
 
 .tokenActionMenu button.danger {

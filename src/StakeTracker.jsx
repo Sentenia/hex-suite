@@ -52,6 +52,9 @@ const BRIDGED_USDC_ADDRESS = "0x15D38573d2feeb82e7ad5187aB8c1D52810B1f07";
 const BRIDGED_USDT_ADDRESS = "0x0Cb6F5a34ad42ec934882A05265A7d5F59b51A2f";
 const BRIDGED_WETH_ADDRESS = "0x02DcdD04e3F455D838cd1249292C58f3B79e3C3C";
 const BRIDGED_WBTC_ADDRESS = "0xb17D901469B9208B17d916112988A3FeD19b5cA1";
+// Fork-copy WBTC: Ethereum's WBTC contract as copied at the PulseChain fork — the
+// depegged "pDAI of BTC". Distinct from the bridged WBTC above.
+const FORK_WBTC_ADDRESS = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
 const PCOCK_ADDRESS = "0xc10A4Ed9b4042222d69ff0B374eddd47ed90fC1F";
 const ATROPA_ADDRESS = "0xCc78A0acDF847A2C1714D2A925bB4477df5d48a6";
 const PTGC_ADDRESS = "0x94534EeEe131840b1c0F61847c572228bdfDDE93";
@@ -126,6 +129,32 @@ const MOON_MATH_CUSTOM_TOKENS_STORAGE_KEY = "pledge-moon-math-custom-tokens-v1";
 const MOON_MATH_HIDDEN_STORAGE_KEY = "pledge-moon-math-hidden-v1";
 // Starting target mcap for user-added moon math coins — deliberately dreamy, always editable.
 const MOON_MATH_CUSTOM_DEFAULT_TARGET_MCAP = 1_000_000_000;
+// Bridged assets with a real-world reference price. The Peg button sets the card's target
+// to the origin asset's live price and back-solves the implied target mcap from it.
+const MOON_MATH_PEG_REFERENCES = {
+  [FORK_WBTC_ADDRESS.toLowerCase()]: {
+    label: "BTC",
+    type: "market",
+    chainKey: "ethereum",
+    // Real WBTC on Ethereum mainnet — trades at BTC price.
+    address: FORK_WBTC_ADDRESS
+  },
+  [BRIDGED_WBTC_ADDRESS.toLowerCase()]: {
+    label: "BTC",
+    type: "market",
+    chainKey: "ethereum",
+    address: FORK_WBTC_ADDRESS
+  },
+  [BRIDGED_WETH_ADDRESS.toLowerCase()]: {
+    label: "ETH",
+    type: "market",
+    chainKey: "ethereum",
+    address: WETH_ADDRESS
+  },
+  [BRIDGED_DAI_ADDRESS.toLowerCase()]: { label: "$1", type: "fixed", price: 1 },
+  [BRIDGED_USDC_ADDRESS.toLowerCase()]: { label: "$1", type: "fixed", price: 1 },
+  [BRIDGED_USDT_ADDRESS.toLowerCase()]: { label: "$1", type: "fixed", price: 1 }
+};
 const CORE_TRACKER_PAGE_SIZE = 10;
 const TSHARE_HISTORY_ENDPOINTS = {
   ethereum: "https://hexdailystats.com/fulldata",
@@ -146,6 +175,7 @@ const TOKEN_ACCENT_COLORS = {
   icsa: "#38cfff",
   prvx: "#8f7bff",
   eth: "#6ea8ff",
+  wbtc: "#f7931a",
   hdrn: "#9aa7ff",
   atropa: "#c86bff"
 };
@@ -200,6 +230,10 @@ const TSHARE_CHART_HEIGHT = 320;
 const MOON_MATH_TARGET_MCAP = 40_000_000_000;
 const MOON_MATH_TOKENS = [
   { key: "pdai", symbol: "pDAI", name: "Pulse DAI", priceKeys: ["pdai"], marketKey: "pdai", icon: "/token-icons/pdai.png" },
+  // Fork-copy WBTC, price-target card like pDAI: the user sets the target price (or pegs
+  // to real BTC); the card shows the mcap that price implies. The disc- key matches
+  // holdings rows cached from before this token became curated.
+  { key: "wbtc", symbol: "WBTC", name: "Wrapped BTC", priceKeys: ["wbtc", "disc-0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"], marketKey: "wbtc" },
   { key: "hex", symbol: "HEX", name: "Pulse HEX", priceKeys: ["phex"], marketKey: "phex", icon: "/token-icons/phex.png", targetMcap: MOON_MATH_TARGET_MCAP },
   { key: "pls", symbol: "PLS", name: "Pulse", priceKeys: ["pls"], marketKey: "pls", icon: "/token-icons/pls.png", targetMcap: MOON_MATH_TARGET_MCAP },
   { key: "plsx", symbol: "PLSX", name: "PulseX", priceKeys: ["plsx"], marketKey: "plsx", icon: "/token-icons/plsx.png", targetMcap: MOON_MATH_TARGET_MCAP },
@@ -249,6 +283,7 @@ const MARKET_TOKENS = [
   { key: "usdt", symbol: "USDT", name: "Bridged USDT", chainKey: "pulsechain", address: BRIDGED_USDT_ADDRESS },
   { key: "weth-pls", symbol: "WETH", name: "Bridged WETH", chainKey: "pulsechain", address: BRIDGED_WETH_ADDRESS },
   { key: "wbtc-pls", symbol: "WBTC", name: "Bridged WBTC", chainKey: "pulsechain", address: BRIDGED_WBTC_ADDRESS },
+  { key: "wbtc", symbol: "WBTC", name: "Wrapped BTC", chainKey: "pulsechain", address: FORK_WBTC_ADDRESS },
   { key: "phex", symbol: "HEX", name: "Pulse HEX", chainKey: "pulsechain", address: HEX_ADDRESS, icon: "/token-icons/phex.png" },
   { key: "pls", symbol: "PLS", name: "Pulse", chainKey: "pulsechain", address: WPLS_ADDRESS, note: "via WPLS", icon: "/token-icons/pls.png" },
   { key: "plsx", symbol: "PLSX", name: "PulseX", chainKey: "pulsechain", address: PLSX_ADDRESS, icon: "/token-icons/plsx.png" },
@@ -273,6 +308,14 @@ const MARKET_TOKENS = [
   { key: "eth", symbol: "ETH", name: "Ethereum", chainKey: "ethereum", address: WETH_ADDRESS, icon: "/token-icons/eth.png" }
 ];
 
+// Addresses of the core moon math set — custom moon additions dedupe against this.
+const MOON_MATH_CORE_ADDRESSES = new Set(
+  MOON_MATH_TOKENS
+    .map((token) => MARKET_TOKENS.find((market) => market.key === token.marketKey)?.address)
+    .filter(Boolean)
+    .map((address) => String(address).toLowerCase())
+);
+
 const PORTFOLIO_TOKENS = [
   { key: "native-pls", symbol: "PLS", name: "Pulse", chainKey: "pulsechain", native: true, decimals: 18, priceKey: "pls", icon: "/token-icons/pls.png" },
   { key: "pdai", symbol: "pDAI", name: "Pulse DAI", chainKey: "pulsechain", address: PDAI_ADDRESS, decimals: 18, priceKey: "pdai", icon: "/token-icons/pdai.png" },
@@ -281,6 +324,7 @@ const PORTFOLIO_TOKENS = [
   { key: "usdt", symbol: "USDT", name: "Bridged USDT", chainKey: "pulsechain", address: BRIDGED_USDT_ADDRESS, decimals: 6, priceKey: "usdt" },
   { key: "weth-pls", symbol: "WETH", name: "Bridged WETH", chainKey: "pulsechain", address: BRIDGED_WETH_ADDRESS, decimals: 18, priceKey: "weth-pls" },
   { key: "wbtc-pls", symbol: "WBTC", name: "Bridged WBTC", chainKey: "pulsechain", address: BRIDGED_WBTC_ADDRESS, decimals: 8, priceKey: "wbtc-pls" },
+  { key: "wbtc", symbol: "WBTC", name: "Wrapped BTC", chainKey: "pulsechain", address: FORK_WBTC_ADDRESS, decimals: 8, priceKey: "wbtc" },
   { key: "phex", symbol: "HEX", name: "Pulse HEX", chainKey: "pulsechain", address: HEX_ADDRESS, decimals: 8, priceKey: "phex", icon: "/token-icons/phex.png" },
   { key: "plsx", symbol: "PLSX", name: "PulseX", chainKey: "pulsechain", address: PLSX_ADDRESS, decimals: 18, priceKey: "plsx", icon: "/token-icons/plsx.png" },
   { key: "inc", symbol: "INC", name: "Incentive", chainKey: "pulsechain", address: INC_ADDRESS, decimals: 18, priceKey: "inc", icon: "/token-icons/inc.png" },
@@ -417,16 +461,28 @@ function formatLpUnderlyingAmount(amount) {
 }
 
 async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Blocked (browser privacy settings) — fall through to the legacy path.
+    }
+  }
+
   try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Clipboard API blocked — legacy fallback.
     const textarea = document.createElement("textarea");
     textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
     document.body.appendChild(textarea);
     textarea.select();
-    document.execCommand("copy");
+    const copied = document.execCommand("copy");
     textarea.remove();
+    return copied;
+  } catch {
+    return false;
   }
 }
 
@@ -2348,6 +2404,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   const [moonMathHidden, setMoonMathHidden] = useState(() => loadStoredStringList(MOON_MATH_HIDDEN_STORAGE_KEY));
   const [moonMathTokenInput, setMoonMathTokenInput] = useState("");
   const [moonMathTokenError, setMoonMathTokenError] = useState("");
+  const [pegBusyKey, setPegBusyKey] = useState("");
   const [customTokenInput, setCustomTokenInput] = useState("");
   const [customTokenError, setCustomTokenError] = useState("");
   const [portfolioHoldings, setPortfolioHoldings] = useState(() => cachedHoldings?.rows || []);
@@ -2362,6 +2419,8 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   const [backfillDepth, setBackfillDepth] = useState(loadBackfillDepth);
   // Row key of the holding whose action popover is open, or null.
   const [tokenActionTarget, setTokenActionTarget] = useState(null);
+  // Row key whose "Copy contract" just fired — drives the Copied! confirmation state.
+  const [copiedContractKey, setCopiedContractKey] = useState("");
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyCopied, setVerifyCopied] = useState(false);
   const [moonShareCopied, setMoonShareCopied] = useState(false);
@@ -3020,6 +3079,12 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
     const liveValue = holdingRows.reduce((total, row) => total + Number(row.valueUsd || 0), 0)
       + extraStakeAmount * livePrice;
     const currentMcap = getTokenMarketCap(token.marketKey);
+    // Supply from the raw pair quote: mcap/price from the same snapshot cancels out any
+    // thin-pool price noise, so implied-mcap-at-target stays meaningful even for WBTC.
+    const marketRowRaw = marketRows.find((item) => item.key === token.marketKey);
+    const rawPrice = Number(marketRowRaw?.priceUsd);
+    const rawMcap = Number(marketRowRaw?.marketCap);
+    const tokenSupply = rawPrice > 0 && rawMcap > 0 ? rawMcap / rawPrice : 0;
     // mcap-driven tokens aim at an editable target market cap (default = our estimate);
     // their target price = livePrice * (targetMcap / currentMcap).
     const effectiveTargetMcap = token.targetMcap
@@ -3060,6 +3125,12 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
 
     return {
       ...token,
+      // Cards without a bundled icon use the one the market feed resolved (same source
+      // as My coins), falling back to the lettered avatar.
+      icon: token.icon || marketRowRaw?.icon || "",
+      address: MARKET_TOKENS.find((market) => market.key === token.marketKey)?.address || "",
+      tokenSupply,
+      impliedTargetMcap: tokenSupply > 0 && targetPrice > 0 ? tokenSupply * targetPrice : 0,
       showStakeSplit: isHexCard,
       liquidAmount,
       stakedPrincipalAmount,
@@ -3079,7 +3150,10 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   // User-added moon coins: priced by the market feed (matched by address), holdings summed
   // by address across all row kinds (curated, custom, discovered), target driven by an
   // editable mcap. They flow into the same totals as the core set.
-  const customMoonMathRows = moonMathCustomTokens.map((entry) => {
+  // Customs that later became core cards (e.g. WBTC) auto-collapse into the core card.
+  const customMoonMathRows = moonMathCustomTokens
+    .filter((entry) => !MOON_MATH_CORE_ADDRESSES.has(entry.address.toLowerCase()))
+    .map((entry) => {
     const addressLower = entry.address.toLowerCase();
     const key = `moon-${addressLower}`;
     const marketRow = marketRows.find(
@@ -3089,11 +3163,15 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       (row) => String(row.address || "").toLowerCase() === addressLower
     );
     const liquidAmount = holdingRows.reduce((total, row) => total + Number(row.amount || 0), 0);
-    const livePrice = Number(marketRow?.priceUsd) > 0
+    // A pool below the liquidity floor produces noise, not prices — treat as unpriced.
+    const marketLiquidity = Number(marketRow?.liquidityUsd);
+    const thinPool = Boolean(marketRow) && Number.isFinite(marketLiquidity) && marketLiquidity < DISCOVERED_MIN_LIQUIDITY_USD;
+    const marketPriceUsable = Number(marketRow?.priceUsd) > 0 && !thinPool;
+    const livePrice = marketPriceUsable
       ? Number(marketRow.priceUsd)
       : (holdingRows.find((row) => row.priceUsd > 0)?.priceUsd || 0);
     const liveValue = holdingRows.reduce((total, row) => total + Number(row.valueUsd || 0), 0);
-    const currentMcap = Number(marketRow?.marketCap) > 0 ? Number(marketRow.marketCap) : 0;
+    const currentMcap = marketPriceUsable && Number(marketRow?.marketCap) > 0 ? Number(marketRow.marketCap) : 0;
     const effectiveTargetMcap = parseMcapValue(moonMathMcapOverrides[key]) ?? MOON_MATH_CUSTOM_DEFAULT_TARGET_MCAP;
     const targetPrice = livePrice > 0 && currentMcap > 0 ? livePrice * (effectiveTargetMcap / currentMcap) : 0;
     const targetMultiple = livePrice > 0 && targetPrice > 0 ? targetPrice / livePrice : 0;
@@ -3115,6 +3193,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       targetMultiple,
       targetPrice,
       targetValue: liquidAmount * targetPrice,
+      thinPool,
       customMoon: true
     };
   });
@@ -3866,11 +3945,24 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
     }
   }
 
+  // A price from a near-empty pool is noise, not a price — bridged WBTC's ~$30 pool has
+  // printed anywhere from $6k to $62k within minutes. The same liquidity floor that guards
+  // discovered tokens applies to curated ones; missing liquidity data gets benefit of doubt.
   function getTokenPriceUsd(priceKey) {
     const row = marketRows.find((item) => item.key === priceKey);
     const price = Number(row?.priceUsd);
 
-    return Number.isFinite(price) && price > 0 ? price : 0;
+    if (!Number.isFinite(price) || price <= 0) {
+      return 0;
+    }
+
+    const liquidityUsd = Number(row?.liquidityUsd);
+
+    if (Number.isFinite(liquidityUsd) && liquidityUsd < DISCOVERED_MIN_LIQUIDITY_USD) {
+      return 0;
+    }
+
+    return price;
   }
 
   function getTokenMarketIcon(priceKey) {
@@ -5121,14 +5213,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       return;
     }
 
-    const coreMoonAddresses = new Set(
-      MOON_MATH_TOKENS
-        .map((token) => MARKET_TOKENS.find((market) => market.key === token.marketKey)?.address)
-        .filter(Boolean)
-        .map((coreAddress) => String(coreAddress).toLowerCase())
-    );
-
-    if (coreMoonAddresses.has(addressLower)) {
+    if (MOON_MATH_CORE_ADDRESSES.has(addressLower)) {
       setMoonMathTokenError("That coin is already in the core moon math set.");
       return;
     }
@@ -5161,6 +5246,61 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   function restoreMoonMathDefaults() {
     setMoonMathHidden([]);
     saveStoredStringList(MOON_MATH_HIDDEN_STORAGE_KEY, []);
+  }
+
+  // Sets a bridged asset's target to its origin asset's live price (e.g. WBTC → real BTC),
+  // expressed as the implied target mcap so the card's mcap-driven math stays consistent.
+  async function pegMoonMathRowToReference(row) {
+    const reference = MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()];
+
+    if (!reference || pegBusyKey) {
+      return;
+    }
+
+    // Only mcap-driven cards need live price + mcap to back-solve; price-target cards
+    // (pDAI-style) take the reference price directly.
+    if (row.targetMcap && (!(row.livePrice > 0) || !(row.currentMcap > 0))) {
+      setMoonMathTokenError("Pegging needs a live price and mcap — wait for market data to load.");
+      return;
+    }
+
+    setPegBusyKey(row.key);
+
+    try {
+      let pegPrice = reference.type === "fixed" ? reference.price : 0;
+
+      if (reference.type === "market") {
+        const pairs = await fetchDexScreenerPairs(reference.chainKey, [reference.address]);
+        const best = pairs
+          .filter((pair) => pair.baseToken?.address?.toLowerCase() === reference.address.toLowerCase())
+          .sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0))[0];
+        pegPrice = Number(best?.priceUsd || 0);
+      }
+
+      if (!(pegPrice > 0)) {
+        throw new Error(`Couldn't fetch the live ${reference.label} price — try again.`);
+      }
+
+      if (row.targetMcap) {
+        // mcap-driven card: express the peg as its implied target mcap.
+        const impliedMcap = row.currentMcap * (pegPrice / row.livePrice);
+        updateMoonMathMcap(row.key, String(Math.round(impliedMcap)));
+        setMoonMathTokenError(
+          `${row.symbol} pegged to ${reference.label} at ${formatUsd(pegPrice, 2)} (${(pegPrice / row.livePrice).toLocaleString(undefined, { maximumFractionDigits: 1 })}x) — implied target mcap ${formatCompactUsd(impliedMcap)}.`
+        );
+      } else {
+        // Price-target card (pDAI-style): set the target price directly.
+        updateMoonMathTarget(row.key, pegPrice >= 1 ? pegPrice.toFixed(2) : pegPrice.toFixed(6));
+        const impliedMcap = row.tokenSupply > 0 ? row.tokenSupply * pegPrice : 0;
+        setMoonMathTokenError(
+          `${row.symbol} target set to live ${reference.label}: ${formatUsd(pegPrice, 2)}${impliedMcap > 0 ? ` — implied mcap ${formatCompactUsd(impliedMcap)}` : ""}.`
+        );
+      }
+    } catch (error) {
+      setMoonMathTokenError(error?.message || "Peg failed.");
+    } finally {
+      setPegBusyKey("");
+    }
   }
 
   // One verdict per token: hide, demote, or trust. Applying any verdict clears the others.
@@ -5279,6 +5419,24 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       saveTokenOverrides(next);
       return next;
     });
+  }
+
+  // Copies, flashes Copied! on the menu item, then closes the popover — visible confirmation
+  // instead of an instant close that hides whether the copy actually happened.
+  async function handleCopyContract(row, rowKey) {
+    const copied = await copyTextToClipboard(String(row.address));
+
+    if (!copied) {
+      setPortfolioHoldingsStatus(`Clipboard blocked by the browser — ${row.symbol} contract: ${row.address}`);
+      setTokenActionTarget(null);
+      return;
+    }
+
+    setCopiedContractKey(rowKey);
+    window.setTimeout(() => {
+      setCopiedContractKey("");
+      setTokenActionTarget(null);
+    }, 900);
   }
 
   // Reconstruct up to a year of net worth from archive state: balances via balanceOf at
@@ -5843,20 +6001,58 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                               aria-label={`${row.symbol} target market cap`}
                             />
                           </label>
+                          {MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()] && (
+                            <button
+                              type="button"
+                              className="moonMathPegButton"
+                              onClick={() => pegMoonMathRowToReference(row)}
+                              disabled={pegBusyKey === row.key}
+                              title={`Set the target to the live ${MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()].label} price and back-solve the implied mcap`}
+                            >
+                              {pegBusyKey === row.key
+                                ? "Pegging…"
+                                : `Peg → ${MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()].label}`}
+                            </button>
+                          )}
                           <small className="moonMathImpliedPrice">
                             {row.targetPrice > 0 ? `→ $${formatMoonPriceInput(row.targetPrice)}` : "→ needs live price"}
                           </small>
                         </>
                       ) : (
-                        <label>
-                          <span>$</span>
-                          <input
-                            value={moonMathInputValue(row)}
-                            onChange={(event) => updateMoonMathTarget(row.key, event.target.value)}
-                            inputMode="decimal"
-                            aria-label={`${row.symbol} target price`}
-                          />
-                        </label>
+                        <>
+                          <label>
+                            <span>$</span>
+                            <input
+                              value={moonMathInputValue(row)}
+                              onChange={(event) => updateMoonMathTarget(row.key, event.target.value)}
+                              inputMode="decimal"
+                              aria-label={`${row.symbol} target price`}
+                            />
+                          </label>
+                          {MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()] && (
+                            <button
+                              type="button"
+                              className="moonMathPegButton"
+                              onClick={() => pegMoonMathRowToReference(row)}
+                              disabled={pegBusyKey === row.key}
+                              title={`Set the target to the live ${MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()].label} price`}
+                            >
+                              {pegBusyKey === row.key
+                                ? "Pegging…"
+                                : `Peg → ${MOON_MATH_PEG_REFERENCES[String(row.address || "").toLowerCase()].label}`}
+                            </button>
+                          )}
+                          {row.impliedTargetMcap > 0 && (
+                            <small className="moonMathImpliedPrice">
+                              → mcap {formatCompactUsd(row.impliedTargetMcap)} at target
+                            </small>
+                          )}
+                        </>
+                      )}
+                      {row.thinPool && (
+                        <small className="moonMathThinPool" title="This token's pool has almost no liquidity — its reported price swings wildly and can't be trusted">
+                          ⚠ thin pool — price unreliable
+                        </small>
                       )}
                       <div className="moonMathHoldings">
                         <span>hold <b>{displayHexAmount(formatCompactNumber(row.exposure))}</b></span>
@@ -5970,18 +6166,9 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
 
                 return (
                   <article
-                    className="portfolioHoldingRow isClickable"
+                    className="portfolioHoldingRow"
                     key={`holding-total-${row.chain.key}-${row.symbol}-${row.priceKey}`}
                     style={{ "--accent": tokenAccentColor(row.priceKey, row.symbol) }}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setTokenActionTarget((current) => (current === rowKey ? null : rowKey))}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setTokenActionTarget((current) => (current === rowKey ? null : rowKey));
-                      }
-                    }}
                   >
                     <div className="marketTokenIdentity">
                       <TokenAvatar icon={row.icon} symbol={row.symbol} />
@@ -6002,49 +6189,32 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                       <span>value</span>
                       <strong>{displayHexAmount(formatCompactUsd(row.valueUsd))}</strong>
                     </div>
-                    {tokenActionTarget === rowKey && (
-                      <div className="tokenActionMenu" onClick={(event) => event.stopPropagation()}>
-                        {row.address && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              copyTextToClipboard(row.address);
-                              setTokenActionTarget(null);
-                            }}
-                          >
-                            <Copy size={13} aria-hidden="true" />
-                            Copy contract address
-                          </button>
-                        )}
-                        {row.discovered ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                applyTokenOverride(tokenIdentity(row), "demote");
-                                setTokenActionTarget(null);
-                              }}
-                            >
-                              <EyeOff size={13} aria-hidden="true" />
-                              Move to unverified
-                            </button>
-                            <button
-                              type="button"
-                              className="danger"
-                              onClick={() => {
-                                applyTokenOverride(tokenIdentity(row), "hide");
-                                setTokenActionTarget(null);
-                              }}
-                            >
-                              <Trash2 size={13} aria-hidden="true" />
-                              Hide token
-                            </button>
-                          </>
-                        ) : (
-                          <span className="tokenActionNote">Core token — always shown</span>
-                        )}
-                      </div>
-                    )}
+                    <div className="holdingRowActions">
+                      {row.address && (
+                        <button
+                          type="button"
+                          className={copiedContractKey === rowKey ? "tokenRowAction isCopied" : "tokenRowAction"}
+                          onClick={() => handleCopyContract(row, rowKey)}
+                          title={`Copy ${row.symbol} contract address`}
+                          aria-label={`Copy ${row.symbol} contract address`}
+                        >
+                          {copiedContractKey === rowKey
+                            ? <CheckCircle2 size={16} aria-hidden="true" />
+                            : <Copy size={16} aria-hidden="true" />}
+                        </button>
+                      )}
+                      {row.discovered && (
+                        <button
+                          type="button"
+                          className="tokenRowAction danger"
+                          onClick={() => applyTokenOverride(tokenIdentity(row), "demote")}
+                          title={`Remove ${row.symbol} — moves to unverified tokens`}
+                          aria-label={`Remove ${row.symbol} to unverified`}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
                   </article>
                 );
               })}
@@ -6114,13 +6284,12 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                             {row.address && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  copyTextToClipboard(row.address);
-                                  setTokenActionTarget(null);
-                                }}
+                                className={copiedContractKey === rowKey ? "isCopied" : ""}
+                                onClick={() => handleCopyContract(row, rowKey)}
                               >
-                                <Copy size={13} aria-hidden="true" />
-                                Copy contract address
+                                {copiedContractKey === rowKey
+                                  ? <><CheckCircle2 size={13} aria-hidden="true" /> Copied!</>
+                                  : <><Copy size={13} aria-hidden="true" /> Copy contract address</>}
                               </button>
                             )}
                             <button
