@@ -16,6 +16,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Send,
   ShieldCheck,
   TrendingUp,
   Trash2,
@@ -2232,6 +2233,7 @@ export default function StakeTracker({ view = "portfolio" }) {
   const [tokenActionTarget, setTokenActionTarget] = useState(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyCopied, setVerifyCopied] = useState(false);
+  const [moonShareCopied, setMoonShareCopied] = useState(false);
   const [unverifiedTokenPage, setUnverifiedTokenPage] = useState(0);
   const [portfolioHoldingsBusy, setPortfolioHoldingsBusy] = useState(false);
   const [portfolioHoldingsStatus, setPortfolioHoldingsStatus] = useState(() => (
@@ -4798,6 +4800,75 @@ export default function StakeTracker({ view = "portfolio" }) {
     });
   }
 
+  // Hype text for Telegram/X. When the privacy toggle is on, dollar figures are left out
+  // and only the multiples ship — so a streamer can share the flex without doxxing size.
+  function buildMoonMathShareText() {
+    const portfolioMultiple = portfolioTotalUsd > 0 ? moonMathProjectedPortfolioValue / portfolioTotalUsd : 0;
+    const multipleLabel = portfolioMultiple > 1
+      ? `${portfolioMultiple.toLocaleString(undefined, { maximumFractionDigits: 1 })}x`
+      : "";
+    const topRows = moonMathRows
+      .filter((row) => row.targetValue > 0 && row.targetMultiple > 1)
+      .sort((a, b) => b.targetValue - a.targetValue)
+      .slice(0, 4);
+    const lines = [
+      "🌕 MOON MATH 🌕",
+      `If pDAI repegs to $${formatMoonPriceInput(safePdaiTargetPrice) || "1"}…`,
+      ""
+    ];
+
+    if (hideHexAmounts) {
+      lines.push(`My portfolio does a ${multipleLabel || "🤐"} 🚀`);
+    } else {
+      lines.push(`💰 Port today: ${formatCompactUsd(portfolioTotalUsd)}`);
+      lines.push(`🚀 At targets: ${formatCompactUsd(moonMathProjectedPortfolioValue)}${multipleLabel ? ` (${multipleLabel})` : ""}`);
+    }
+
+    if (topRows.length > 0) {
+      lines.push("");
+
+      for (const row of topRows) {
+        const rowMultiple = row.targetMultiple.toLocaleString(undefined, {
+          maximumFractionDigits: row.targetMultiple >= 100 ? 0 : 1
+        });
+        lines.push(`${row.symbol} ${rowMultiple}x${hideHexAmounts ? "" : ` → ${formatCompactUsd(row.targetValue)}`}`);
+      }
+    }
+
+    lines.push("");
+    lines.push("NFA. Run your own numbers:");
+    lines.push(window.location.origin);
+
+    return lines.join("\n");
+  }
+
+  async function copyMoonMathShare() {
+    const text = buildMoonMathShareText();
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    setMoonShareCopied(true);
+    window.setTimeout(() => setMoonShareCopied(false), 2_500);
+  }
+
+  function shareMoonMathToTelegram() {
+    const text = buildMoonMathShareText();
+    window.open(
+      `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener"
+    );
+  }
+
   async function copyVerifyPrompt() {
     const prompt = buildVerifyAuditPrompt();
 
@@ -5359,6 +5430,30 @@ export default function StakeTracker({ view = "portfolio" }) {
                   <strong>{displayHexAmount(formatCompactUsd(moonMathNonCoreValue))}</strong>
                   <small>everything outside the Moon Math set</small>
                 </article>
+              </div>
+
+              <div className="moonMathShareRow">
+                <button
+                  type="button"
+                  className="stakeGhostButton"
+                  onClick={copyMoonMathShare}
+                  title="Copy hype text for Telegram, X, or anywhere"
+                >
+                  <Copy size={15} aria-hidden="true" />
+                  {moonShareCopied ? "Copied!" : "Copy hype"}
+                </button>
+                <button
+                  type="button"
+                  className="stakeGhostButton"
+                  onClick={shareMoonMathToTelegram}
+                  title="Open Telegram with the moon math pre-filled"
+                >
+                  <Send size={15} aria-hidden="true" />
+                  Share to Telegram
+                </button>
+                {hideHexAmounts && (
+                  <small className="moonMathShareNote">privacy on — shares multiples only, no dollar amounts</small>
+                )}
               </div>
             </div>
           )}

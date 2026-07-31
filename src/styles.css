@@ -1451,6 +1451,19 @@ dd {
   background: rgba(214, 199, 255, 0.1);
 }
 
+.moonMathShareRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.moonMathShareNote {
+  color: #9a8fb8;
+  font-size: 0.66rem;
+}
+
 .verifySourceWrap {
   position: relative;
 }
