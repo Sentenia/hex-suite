@@ -1563,6 +1563,45 @@ dd {
   font-size: 0.66rem;
 }
 
+/* The primary onboarding action — glows in the HEX/PulseChain spectrum (pink → purple →
+   cyan) so a first-time visitor can't miss it. */
+.addWalletJumpButton {
+  border-color: rgba(255, 45, 158, 0.6) !important;
+  color: #f3edff !important;
+  background: linear-gradient(135deg, rgba(255, 45, 158, 0.12), rgba(176, 75, 255, 0.12)) !important;
+  box-shadow: 0 0 16px rgba(255, 45, 158, 0.4);
+  animation: addWalletGlow 3.6s ease-in-out infinite;
+}
+
+.addWalletJumpButton:hover {
+  background: linear-gradient(135deg, rgba(255, 45, 158, 0.22), rgba(176, 75, 255, 0.22)) !important;
+  box-shadow:
+    0 0 26px rgba(255, 45, 158, 0.55),
+    0 0 40px rgba(176, 75, 255, 0.35);
+  animation-play-state: paused;
+}
+
+@keyframes addWalletGlow {
+  0%, 100% {
+    border-color: rgba(255, 45, 158, 0.65);
+    box-shadow: 0 0 18px rgba(255, 45, 158, 0.45);
+  }
+  33% {
+    border-color: rgba(176, 75, 255, 0.65);
+    box-shadow: 0 0 22px rgba(176, 75, 255, 0.5);
+  }
+  66% {
+    border-color: rgba(56, 207, 255, 0.6);
+    box-shadow: 0 0 20px rgba(56, 207, 255, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addWalletJumpButton {
+    animation: none;
+  }
+}
+
 .stakeHeaderPrice strong {
   color: var(--accent, #ff2d9e);
   text-shadow: 0 0 12px color-mix(in srgb, var(--accent, #ff2d9e) 40%, transparent);
