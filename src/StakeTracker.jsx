@@ -995,8 +995,21 @@ function PortfolioHistoryChart({ points, formatValue, onBackfill, backfillBusy, 
             role="img"
             aria-label={`Net worth chart, ${range.label} range, ${change >= 0 ? "up" : "down"} ${Math.abs(change).toFixed(1)} percent`}
           >
-            <polygon points={area} fill={stroke} opacity="0.08" />
-            <polyline points={line} fill="none" stroke={stroke} strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+            <defs>
+              <linearGradient id="netWorthAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={stroke} stopOpacity="0.32" />
+                <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon points={area} fill="url(#netWorthAreaGradient)" />
+            <polyline
+              points={line}
+              fill="none"
+              stroke={stroke}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+              style={{ filter: `drop-shadow(0 0 5px ${stroke})` }}
+            />
           </svg>
           {hovered && (
             <>
@@ -2245,7 +2258,10 @@ function TshareHistoryChart({ rows }) {
   );
 }
 
-export default function StakeTracker({ view = "portfolio" }) {
+export default function StakeTracker({ view: initialView = "portfolio" }) {
+  // Tabs are client-side: switching views swaps content in place (with a fade) instead of
+  // a full page reload, so the header tiles and all loaded data persist across tabs.
+  const [view, setView] = useState(initialView);
   const cachedScan = useMemo(loadScanCache, []);
   const cachedHoldings = useMemo(loadPortfolioHoldingsCache, []);
   const [liveHexDay, setLiveHexDay] = useState(estimatedHexDay);
@@ -2417,6 +2433,35 @@ export default function StakeTracker({ view = "portfolio" }) {
   const isStakeCreator = view === "create";
   const isHexStakes = view === "stakes";
   const isPortfolio = view === "portfolio";
+
+  function navigateToView(nextView) {
+    if (nextView === view) {
+      return;
+    }
+
+    setView(nextView);
+
+    const page = nextView === "create" ? "hex-stake" : nextView;
+
+    try {
+      window.history.pushState({}, "", `${window.location.pathname}?page=${page}`);
+    } catch {
+      // Sandboxed iframe etc. — view still switches, URL just doesn't update.
+    }
+
+    window.scrollTo({ top: 0 });
+  }
+
+  // Browser back/forward moves between tabs too.
+  useEffect(() => {
+    const handlePopState = () => {
+      const page = new URLSearchParams(window.location.search).get("page");
+      setView(page === "stakes" ? "stakes" : page === "hex-stake" ? "create" : "portfolio");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   const savedWallets = Array.isArray(portfolio.wallets) ? portfolio.wallets : [];
   const recoverableWallets = useMemo(() => {
     if (savedWallets.length > 0) {
@@ -2499,7 +2544,7 @@ export default function StakeTracker({ view = "portfolio" }) {
       ? stakeQuoteMetrics[stakeChainKey].currentDay.toLocaleString()
       : `~${estimatedHexDay().toLocaleString()}`;
   const headerHexDayLabel = isStakeCreator ? createStakeHexDayLabel : portfolioHexDayLabel;
-  const headerHexDayDetail = isStakeCreator ? selectedStakeChain.shortLabel : "latest scan";
+  const headerHexDayDetail = "latest scan";
   const stakeAmountHearts = parseStakeAmountHearts(stakeAmount);
   const stakeDaysNumber = parseStakeDaysInput(stakeDays);
   const stakeBonusPreview = stakeAmountHearts && stakeDaysNumber
@@ -2986,11 +3031,8 @@ export default function StakeTracker({ view = "portfolio" }) {
     [customCoreTokens]
   );
 
+  // Runs on every view — the header's pHEX/eHEX tiles need prices even on the create tab.
   useEffect(() => {
-    if (isStakeCreator) {
-      return undefined;
-    }
-
     refreshMarkets();
 
     // Prices re-layer over cached balances instantly (pricedPortfolioHoldings), so a
@@ -3002,7 +3044,7 @@ export default function StakeTracker({ view = "portfolio" }) {
     }, 60_000);
 
     return () => window.clearInterval(interval);
-  }, [isStakeCreator, allMarketTokens]);
+  }, [allMarketTokens]);
 
   useEffect(() => {
     refreshPulseGas();
@@ -5221,6 +5263,9 @@ export default function StakeTracker({ view = "portfolio" }) {
 
                 return (
                   <article className="marketCard" key={token.key} style={{ "--accent": accent }}>
+                {row.icon && (
+                  <img className="marketCardWatermark" src={row.icon} alt="" aria-hidden="true" loading="lazy" />
+                )}
                 <header>
                   <div className="marketTokenIdentity">
                     <TokenAvatar icon={row.icon} symbol={row.symbol} />
@@ -5889,8 +5934,8 @@ export default function StakeTracker({ view = "portfolio" }) {
         <div className="stakeBrandLockup">
           <img className="stakeHexMark" src="/token-icons/phex.png" alt="" aria-hidden="true" />
           <h1>{title}</h1>
-          <span className="stakePageKicker">HEX SUITE</span>
         </div>
+        <span className="stakePageKicker stakeTopbarKicker">HEX SUITE</span>
         {renderWalletBar()}
         <div className="stakeHeaderMeta">
           {[
@@ -6490,7 +6535,11 @@ export default function StakeTracker({ view = "portfolio" }) {
       <div className="stakeGrain" />
       <div className="stakeWrap">
         {renderStakeTopbar()}
-        <FeatureMenu active={isStakeCreator ? "hexStake" : isHexStakes ? "stakes" : "portfolio"} />
+        <FeatureMenu
+          active={isStakeCreator ? "hexStake" : isHexStakes ? "stakes" : "portfolio"}
+          onNavigate={(key) => navigateToView(key === "hexStake" ? "create" : key)}
+        />
+        <div className="viewFade" key={view}>
         {isStakeCreator && renderTsharePanel()}
 
         {isStakeCreator && (
@@ -7144,6 +7193,7 @@ export default function StakeTracker({ view = "portfolio" }) {
             </div>
           );
         })()}
+        </div>
       </div>
     </main>
   );

@@ -824,13 +824,13 @@ dd {
 }
 
 .stakeTopbar {
-  /* Row 1: brand left, buy/connect-wallet right. Row 2: metric tiles, full width —
-     keeps the tiles from ever crowding the title or the wallet controls. */
+  /* Row 1: page title left, HEX SUITE kicker dead center (fixed — doesn't shift when the
+     title changes length per tab), buy/connect-wallet right. Row 2: metric tiles. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-areas:
-    "brand wallet"
-    "meta meta";
+    "brand kicker wallet"
+    "meta meta meta";
   align-items: center;
   gap: 14px 24px;
   min-height: 94px;
@@ -839,6 +839,13 @@ dd {
 
 .stakeTopbar .stakeBrandLockup {
   grid-area: brand;
+}
+
+.stakeTopbarKicker {
+  grid-area: kicker;
+  justify-self: center;
+  color: #d6c7ff;
+  text-shadow: 0 0 12px rgba(255, 45, 158, 0.35);
 }
 
 .stakeTopbar .stakeWalletBar {
@@ -1020,6 +1027,22 @@ dd {
 
 .portfolioValueBoard {
   margin: 0 0 18px;
+}
+
+/* Muted HEX coin ghosted into the top third of the net worth card, behind the chart. */
+.portfolioValuePanel::after {
+  content: "";
+  position: absolute;
+  inset: -4%;
+  background: url("/token-icons/phex.png") center 4% / min(64%, 460px) no-repeat;
+  opacity: 0.05;
+  filter: saturate(0.7);
+  pointer-events: none;
+}
+
+.portfolioValuePanel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .portfolioValuePanel {
@@ -1508,6 +1531,29 @@ dd {
   color: #f3edff;
   border-color: rgba(214, 199, 255, 0.5);
   background: rgba(214, 199, 255, 0.1);
+}
+
+/* Tab content fades in on switch; the topbar and menu sit outside this wrapper and never
+   re-render, so header tiles stay rock-steady across tabs. */
+.viewFade {
+  animation: viewFadeIn 240ms ease;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewFade {
+    animation: none;
+  }
 }
 
 .appCrashScreen {
@@ -2010,6 +2056,8 @@ dd {
 
 .marketCard {
   --accent: #ff2cb4;
+  position: relative;
+  overflow: hidden;
   display: flex;
   min-height: 194px;
   flex-direction: column;
@@ -2023,14 +2071,39 @@ dd {
   box-shadow:
     0 0 20px color-mix(in srgb, var(--accent) 14%, transparent),
     inset 0 0 24px color-mix(in srgb, var(--accent) 5%, transparent);
-  transition: box-shadow 160ms ease, border-color 160ms ease;
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
 .marketCard:hover {
   border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  transform: translateY(-2px);
   box-shadow:
     0 0 30px color-mix(in srgb, var(--accent) 24%, transparent),
     inset 0 0 24px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+/* Giant token ghosted into the card corner, à la the reference design. */
+.marketCardWatermark {
+  position: absolute;
+  right: -28px;
+  bottom: -28px;
+  width: 132px;
+  height: 132px;
+  opacity: 0.09;
+  filter: saturate(1.5);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 160ms ease;
+}
+
+.marketCard:hover .marketCardWatermark {
+  opacity: 0.16;
+}
+
+/* Keep real content painting above the watermark. */
+.marketCard > *:not(.marketCardWatermark) {
+  position: relative;
+  z-index: 1;
 }
 
 /* Big neon price, like the reference cards. */
@@ -2078,6 +2151,18 @@ dd {
 
 .marketTokenIdentity img {
   object-fit: contain;
+  /* 3D coin: lit from the top-left, edge falls into shadow, sits above the card. */
+  padding: 2px;
+  background: radial-gradient(
+    120% 120% at 30% 24%,
+    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.04) 42%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.28),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.55);
   filter: drop-shadow(0 8px 18px rgba(255, 44, 180, 0.2));
 }
 
@@ -2086,6 +2171,10 @@ dd {
   place-items: center;
   border: 1px solid rgba(214, 199, 255, 0.12);
   color: #f3edff;
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.22),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.5);
   background: linear-gradient(135deg, rgba(255, 44, 180, 0.22), rgba(31, 213, 255, 0.18));
   overflow: hidden;
   padding: 2px;
@@ -2278,18 +2367,51 @@ dd {
   box-shadow: 0 10px 24px rgba(31, 213, 255, 0.15);
 }
 
+/* Buy links glow in their token's accent: pHEX in HEX pink, eHEX in eHEX orange.
+   Same breathing rhythm as the Add wallet button, offset so they don't pulse in sync. */
+.buyHexLink.phex,
+.buyHexLink.ehex {
+  border-radius: 8px;
+  animation: buyHexGlow 3.6s ease-in-out infinite;
+}
+
 .buyHexLink.phex {
-  border-color: rgba(31, 213, 255, 0.38);
+  --accent: #ff2d9e;
+  border-color: rgba(255, 45, 158, 0.55);
   background:
-    linear-gradient(135deg, rgba(31, 213, 255, 0.12), rgba(139, 60, 255, 0.1)),
-    rgba(7, 3, 18, 0.62);
+    linear-gradient(135deg, rgba(255, 45, 158, 0.14), rgba(176, 75, 255, 0.1)),
+    rgba(6, 9, 20, 0.62);
 }
 
 .buyHexLink.ehex {
-  border-color: rgba(255, 44, 180, 0.42);
+  --accent: #ff7847;
+  border-color: rgba(255, 120, 71, 0.55);
   background:
-    linear-gradient(135deg, rgba(255, 44, 180, 0.13), rgba(255, 44, 180, 0.08)),
-    rgba(7, 3, 18, 0.62);
+    linear-gradient(135deg, rgba(255, 120, 71, 0.14), rgba(255, 45, 158, 0.08)),
+    rgba(6, 9, 20, 0.62);
+  animation-delay: 1.8s;
+}
+
+.buyHexLink.phex:hover,
+.buyHexLink.ehex:hover {
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation-play-state: paused;
+}
+
+@keyframes buyHexGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buyHexLink.phex,
+  .buyHexLink.ehex {
+    animation: none;
+  }
 }
 
 .stakeWalletGrid {
@@ -3369,19 +3491,19 @@ dd {
   background:
     radial-gradient(70% 120% at 0% 0%, rgba(255, 44, 180, 0.16), transparent 62%),
     radial-gradient(60% 100% at 100% 100%, rgba(31, 213, 255, 0.08), transparent 70%),
-    #121110;
+    #0a0f1e;
 }
 
+/* Muted pHEX coin ghosted into the top-right of the stakes hero — an actual recognizable
+   logo (replaces the old abstract rings), matching the net worth card's watermark. */
 .hexStakeOverviewCopy::after {
   position: absolute;
-  inset: auto -10% -58% auto;
-  width: 410px;
-  height: 410px;
-  border: 1px solid rgba(255, 44, 180, 0.16);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 42px rgba(139, 60, 255, 0.035),
-    0 0 0 84px rgba(31, 213, 255, 0.025);
+  inset: 26% -4% auto auto;
+  width: min(380px, 55vw);
+  height: min(380px, 55vw);
+  background: url("/token-icons/phex.png") center / contain no-repeat;
+  opacity: 0.055;
+  filter: saturate(0.7);
   content: "";
   pointer-events: none;
 }
@@ -4281,8 +4403,17 @@ dd {
 
   .stakeTopbar {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "kicker"
+      "wallet"
+      "meta";
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .stakeTopbarKicker {
+    justify-self: start;
   }
 
   .stakeHeaderMeta {

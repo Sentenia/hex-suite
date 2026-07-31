@@ -21,9 +21,16 @@ const MENU_ITEMS = [
   }
 ];
 
-export default function FeatureMenu({ active = "portfolio" }) {
+export default function FeatureMenu({ active = "portfolio", onNavigate }) {
   function goTo(item) {
     if (item.disabled) return;
+
+    // Client-side switch when the host handles it; hard navigation only as fallback.
+    if (onNavigate) {
+      onNavigate(item.key);
+      return;
+    }
+
     window.location.href = `${window.location.pathname}${item.href}`;
   }
 
