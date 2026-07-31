@@ -6,7 +6,7 @@ A client-side HEX & PulseChain portfolio tracker. No backend, no accounts, no an
 
 The only official deployment of this repo is:
 
-- **(production URL pending — will be listed here at launch)**
+- **https://hex-suite.vercel.app**
 
 If you copied an audit prompt from a site not listed above, that site may not be running this code.
 
