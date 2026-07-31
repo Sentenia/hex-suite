@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Clock,
   Coins,
+  Copy,
   Download,
   Eye,
   EyeOff,
@@ -118,6 +119,20 @@ const TSHARE_HISTORY_ENDPOINTS = {
   ethereum: "https://hexdailystats.com/fulldata",
   pulsechain: "https://hexdailystats.com/fulldatapulsechain"
 };
+const SOURCE_REPO_URL = "https://github.com/Sentenia/hex-suite";
+// Vercel injects the deployed commit SHA (system env vars exposed to Vite builds), so the
+// audit prompt pins the EXACT code this deployment was built from, not just the repo.
+const SOURCE_COMMIT = import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || "main";
+const VERIFY_AUDIT_PROMPT = `Please audit this open-source crypto portfolio tracker for malicious code: ${SOURCE_REPO_URL}/tree/${SOURCE_COMMIT}
+
+It claims to be a fully client-side, read-only HEX/PulseChain portfolio viewer with no backend. Check specifically for:
+1. Any code that sends wallet addresses, keys, or user data anywhere beyond read-only queries to public RPCs, Blockscout, DexScreener, and hexdailystats.
+2. Wallet-drain patterns: unexpected token approvals, transaction rewriting, or recipient/address swaps in the transaction paths.
+3. Obfuscated, encoded, or dynamically evaluated code.
+4. Whether the transaction-signing flows (HEX stake start/end) do exactly what the UI claims and nothing else.
+
+Report anything suspicious, or confirm it is safe to use as a watch-only portfolio tracker.`;
+
 const BUY_PHEX_URL = "https://app.pulsex.com/swap";
 const BUY_EHEX_URL = `https://app.uniswap.org/swap?outputCurrency=${HEX_ADDRESS}`;
 const TSHARE_CHART_WIDTH = 920;
@@ -2202,6 +2217,8 @@ export default function StakeTracker({ view = "portfolio" }) {
   const [backfillDepth, setBackfillDepth] = useState(loadBackfillDepth);
   // Row key of the holding whose action popover is open, or null.
   const [tokenActionTarget, setTokenActionTarget] = useState(null);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyCopied, setVerifyCopied] = useState(false);
   const [unverifiedTokenPage, setUnverifiedTokenPage] = useState(0);
   const [portfolioHoldingsBusy, setPortfolioHoldingsBusy] = useState(false);
   const [portfolioHoldingsStatus, setPortfolioHoldingsStatus] = useState(() => (
@@ -4768,6 +4785,23 @@ export default function StakeTracker({ view = "portfolio" }) {
     });
   }
 
+  async function copyVerifyPrompt() {
+    try {
+      await navigator.clipboard.writeText(VERIFY_AUDIT_PROMPT);
+    } catch {
+      // Clipboard API blocked (http, permissions) — legacy fallback.
+      const textarea = document.createElement("textarea");
+      textarea.value = VERIFY_AUDIT_PROMPT;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    setVerifyCopied(true);
+    window.setTimeout(() => setVerifyCopied(false), 2_500);
+  }
+
   function restoreHiddenTokens() {
     setTokenOverrides((current) => {
       const next = { ...current, hidden: [] };
@@ -5638,6 +5672,47 @@ export default function StakeTracker({ view = "portfolio" }) {
             <span>HEX day</span>
             <strong>{headerHexDayLabel}</strong>
             <small>{headerHexDayDetail}</small>
+          </div>
+          <div className="verifySourceWrap">
+            <button
+              type="button"
+              className="verifySourceButton"
+              onClick={() => setVerifyOpen((current) => !current)}
+              title="This app is open source — verify the code yourself"
+              aria-expanded={verifyOpen}
+            >
+              <ShieldCheck size={14} aria-hidden="true" />
+              Source
+            </button>
+            {verifyOpen && (
+              <div className="verifyMenu">
+                <p>
+                  Fully open source and client-side — your wallet addresses never leave this browser.
+                  Don't trust that claim: verify it.
+                </p>
+                <a href={`${SOURCE_REPO_URL}/tree/${SOURCE_COMMIT}`} target="_blank" rel="noreferrer">
+                  <ExternalLink size={13} aria-hidden="true" />
+                  View this exact code on GitHub
+                </a>
+                <button type="button" onClick={copyVerifyPrompt}>
+                  <Copy size={13} aria-hidden="true" />
+                  {verifyCopied ? "Copied — paste it into Claude" : "Copy AI audit prompt"}
+                </button>
+                <small>
+                  The prompt asks an AI (Claude, or any assistant that can read GitHub) to check this
+                  deployment's code for wallet drains, data exfiltration, or hidden behavior.
+                </small>
+              </div>
+            )}
+            {verifyOpen && (
+              <button
+                type="button"
+                className="tokenActionBackdrop"
+                onClick={() => setVerifyOpen(false)}
+                aria-label="Close verification panel"
+                tabIndex={-1}
+              />
+            )}
           </div>
         </div>
         {renderWalletBar()}

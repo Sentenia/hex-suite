@@ -1451,6 +1451,80 @@ dd {
   background: rgba(214, 199, 255, 0.1);
 }
 
+.verifySourceWrap {
+  position: relative;
+}
+
+.verifySourceButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(126, 224, 163, 0.35);
+  border-radius: 8px;
+  background: rgba(126, 224, 163, 0.06);
+  color: #7ee0a3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.verifySourceButton:hover {
+  background: rgba(126, 224, 163, 0.14);
+}
+
+.verifyMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: 300px;
+  padding: 12px;
+  border: 1px solid rgba(214, 199, 255, 0.25);
+  border-radius: 8px;
+  background: #0d0620;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+}
+
+.verifyMenu p {
+  margin: 0;
+  color: #d6c7ff;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.verifyMenu a,
+.verifyMenu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(214, 199, 255, 0.16);
+  border-radius: 6px;
+  background: transparent;
+  color: #f3edff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.verifyMenu a:hover,
+.verifyMenu > button:hover {
+  background: rgba(214, 199, 255, 0.1);
+}
+
+.verifyMenu small {
+  color: #9a8fb8;
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
 .privacyEyeToggle {
   display: inline-flex;
   align-items: center;
