@@ -123,15 +123,28 @@ const SOURCE_REPO_URL = "https://github.com/Sentenia/hex-suite";
 // Vercel injects the deployed commit SHA (system env vars exposed to Vite builds), so the
 // audit prompt pins the EXACT code this deployment was built from, not just the repo.
 const SOURCE_COMMIT = import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || "main";
-const VERIFY_AUDIT_PROMPT = `Please audit this open-source crypto portfolio tracker for malicious code: ${SOURCE_REPO_URL}/tree/${SOURCE_COMMIT}
 
-It claims to be a fully client-side, read-only HEX/PulseChain portfolio viewer with no backend. Check specifically for:
-1. Any code that sends wallet addresses, keys, or user data anywhere beyond read-only queries to public RPCs, Blockscout, DexScreener, and hexdailystats.
+// Built at copy time so it can embed the domain it was copied FROM. A malicious fork that
+// ships this prompt pointing at the clean upstream repo will hand the auditor a domain
+// that is absent from the upstream README's official-deployments list — flagging itself.
+function buildVerifyAuditPrompt() {
+  const origin = typeof window !== "undefined" ? window.location.origin : "(unknown)";
+
+  return `Please audit this open-source crypto portfolio tracker for malicious code.
+
+Source: ${SOURCE_REPO_URL}/tree/${SOURCE_COMMIT}
+This prompt was copied from a deployment running at: ${origin}
+
+First, cross-check that deployment domain against the "Official deployment" section of the repo's README. If the domain is not listed there, say so prominently — the site serving this prompt may not be running the code it points to.
+
+The app claims to be a client-side, read-only HEX/PulseChain portfolio viewer with no backend. Check specifically for:
+1. Any code that sends wallet addresses, keys, or user data anywhere beyond read-only queries to the disclosed public services (PulseChain/Ethereum RPCs, Blockscout, DexScreener, hexdailystats).
 2. Wallet-drain patterns: unexpected token approvals, transaction rewriting, or recipient/address swaps in the transaction paths.
 3. Obfuscated, encoded, or dynamically evaluated code.
 4. Whether the transaction-signing flows (HEX stake start/end) do exactly what the UI claims and nothing else.
 
-Report anything suspicious, or confirm it is safe to use as a watch-only portfolio tracker.`;
+Report anything suspicious, or confirm it is safe to use as a watch-only portfolio tracker. Note honestly what a source audit cannot cover (e.g. whether the deployed bundle matches this commit).`;
+}
 
 const BUY_PHEX_URL = "https://app.pulsex.com/swap";
 const BUY_EHEX_URL = `https://app.uniswap.org/swap?outputCurrency=${HEX_ADDRESS}`;
@@ -4786,12 +4799,14 @@ export default function StakeTracker({ view = "portfolio" }) {
   }
 
   async function copyVerifyPrompt() {
+    const prompt = buildVerifyAuditPrompt();
+
     try {
-      await navigator.clipboard.writeText(VERIFY_AUDIT_PROMPT);
+      await navigator.clipboard.writeText(prompt);
     } catch {
       // Clipboard API blocked (http, permissions) — legacy fallback.
       const textarea = document.createElement("textarea");
-      textarea.value = VERIFY_AUDIT_PROMPT;
+      textarea.value = prompt;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
@@ -5687,8 +5702,10 @@ export default function StakeTracker({ view = "portfolio" }) {
             {verifyOpen && (
               <div className="verifyMenu">
                 <p>
-                  Fully open source and client-side — your wallet addresses never leave this browser.
-                  Don't trust that claim: verify it.
+                  Open source, no backend, no accounts. The addresses you watch are sent only as
+                  read-only lookups to public services (RPCs, Blockscout, DexScreener) — like any
+                  block explorer, those services see the addresses you query. Nothing else leaves
+                  this browser. Don't trust that claim: verify it.
                 </p>
                 <a href={`${SOURCE_REPO_URL}/tree/${SOURCE_COMMIT}`} target="_blank" rel="noreferrer">
                   <ExternalLink size={13} aria-hidden="true" />
@@ -5699,8 +5716,12 @@ export default function StakeTracker({ view = "portfolio" }) {
                   {verifyCopied ? "Copied — paste it into Claude" : "Copy AI audit prompt"}
                 </button>
                 <small>
-                  The prompt asks an AI (Claude, or any assistant that can read GitHub) to check this
-                  deployment's code for wallet drains, data exfiltration, or hidden behavior.
+                  The prompt pins this deployment's commit and domain, and asks an AI (Claude, or any
+                  assistant that can read GitHub) to check the code for wallet drains, data
+                  exfiltration, or hidden behavior.
+                </small>
+                <small className="verifyCommitLine">
+                  Deployed commit: <code>{SOURCE_COMMIT.slice(0, 12)}</code>
                 </small>
               </div>
             )}

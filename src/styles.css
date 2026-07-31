@@ -1525,6 +1525,11 @@ dd {
   line-height: 1.4;
 }
 
+.verifyMenu .verifyCommitLine code {
+  color: #d6c7ff;
+  font-family: ui-monospace, monospace;
+}
+
 .privacyEyeToggle {
   display: inline-flex;
   align-items: center;
