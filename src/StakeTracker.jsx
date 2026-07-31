@@ -119,6 +119,13 @@ const CUSTOM_CORE_TOKENS_STORAGE_KEY = "pledge-custom-core-tokens-v1";
 // Built-in tokens (priced via MARKET_TOKENS) the user promoted onto the Core trackers
 // board. Distinct from custom tokens: these already have curated symbols/icons.
 const CORE_BOARD_EXTRAS_STORAGE_KEY = "pledge-core-board-extras-v1";
+// Default board/moon-math entries the user removed. Stored as hidden keys (not a rewrite
+// of the default lists) so new defaults added in updates still appear for existing users.
+const CORE_BOARD_HIDDEN_STORAGE_KEY = "pledge-core-board-hidden-v1";
+const MOON_MATH_CUSTOM_TOKENS_STORAGE_KEY = "pledge-moon-math-custom-tokens-v1";
+const MOON_MATH_HIDDEN_STORAGE_KEY = "pledge-moon-math-hidden-v1";
+// Starting target mcap for user-added moon math coins — deliberately dreamy, always editable.
+const MOON_MATH_CUSTOM_DEFAULT_TARGET_MCAP = 1_000_000_000;
 const CORE_TRACKER_PAGE_SIZE = 10;
 const TSHARE_HISTORY_ENDPOINTS = {
   ethereum: "https://hexdailystats.com/fulldata",
@@ -409,6 +416,20 @@ function formatLpUnderlyingAmount(amount) {
   return amount.toLocaleString(undefined, { maximumFractionDigits: amount >= 1 ? 2 : 6 });
 }
 
+async function copyTextToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Clipboard API blocked — legacy fallback.
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+}
+
 function formatCompactNumber(value) {
   if (!Number.isFinite(value) || value <= 0) {
     return "—";
@@ -509,20 +530,53 @@ function loadCustomCoreTokens() {
   }
 }
 
-function loadCoreBoardExtras() {
+function loadStoredStringList(storageKey) {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(CORE_BOARD_EXTRAS_STORAGE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed.filter((key) => typeof key === "string") : [];
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
   } catch {
     return [];
   }
 }
 
-function saveCoreBoardExtras(keys) {
+function saveStoredStringList(storageKey, list) {
   try {
-    window.localStorage.setItem(CORE_BOARD_EXTRAS_STORAGE_KEY, JSON.stringify(keys));
+    window.localStorage.setItem(storageKey, JSON.stringify(list));
   } catch {
-    // Private mode etc. — additions still work for this session.
+    // Private mode etc. — changes still apply for this session.
+  }
+}
+
+function loadCoreBoardExtras() {
+  return loadStoredStringList(CORE_BOARD_EXTRAS_STORAGE_KEY);
+}
+
+function saveCoreBoardExtras(keys) {
+  saveStoredStringList(CORE_BOARD_EXTRAS_STORAGE_KEY, keys);
+}
+
+// User-added moon math coins: address only; symbol, price, and mcap resolve live.
+function loadMoonMathCustomTokens() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(MOON_MATH_CUSTOM_TOKENS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((entry) => entry && ethers.isAddress(entry.address))
+      .map((entry) => ({ address: ethers.getAddress(entry.address) }));
+  } catch {
+    return [];
+  }
+}
+
+function saveMoonMathCustomTokens(tokens) {
+  try {
+    window.localStorage.setItem(
+      MOON_MATH_CUSTOM_TOKENS_STORAGE_KEY,
+      JSON.stringify(tokens.map((entry) => ({ address: entry.address })))
+    );
+  } catch {
+    // Private mode etc.
   }
 }
 
@@ -2288,7 +2342,12 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   const [marketStatus, setMarketStatus] = useState("");
   const [customCoreTokens, setCustomCoreTokens] = useState(loadCustomCoreTokens);
   const [coreBoardExtras, setCoreBoardExtras] = useState(loadCoreBoardExtras);
+  const [coreBoardHidden, setCoreBoardHidden] = useState(() => loadStoredStringList(CORE_BOARD_HIDDEN_STORAGE_KEY));
   const [coreTrackerPage, setCoreTrackerPage] = useState(0);
+  const [moonMathCustomTokens, setMoonMathCustomTokens] = useState(loadMoonMathCustomTokens);
+  const [moonMathHidden, setMoonMathHidden] = useState(() => loadStoredStringList(MOON_MATH_HIDDEN_STORAGE_KEY));
+  const [moonMathTokenInput, setMoonMathTokenInput] = useState("");
+  const [moonMathTokenError, setMoonMathTokenError] = useState("");
   const [customTokenInput, setCustomTokenInput] = useState("");
   const [customTokenError, setCustomTokenError] = useState("");
   const [portfolioHoldings, setPortfolioHoldings] = useState(() => cachedHoldings?.rows || []);
@@ -2801,6 +2860,19 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
     .filter((row) => row.chain.key === "ethereum")
     .reduce((total, row) => total + stakeValueHearts(row), 0n);
   const selectedStakedYieldHearts = selectedActiveStakeRows.reduce((total, row) => total + estimateStakeYieldHearts(row), 0n);
+  // Per-chain staked principal and estimated yield, for the HEX/eHEX moon math breakdown.
+  const selectedPulseStakePrincipalHearts = selectedActiveStakeRows
+    .filter((row) => row.chain.key === "pulsechain")
+    .reduce((total, row) => total + row.stakedHearts, 0n);
+  const selectedEthereumStakePrincipalHearts = selectedActiveStakeRows
+    .filter((row) => row.chain.key === "ethereum")
+    .reduce((total, row) => total + row.stakedHearts, 0n);
+  const selectedPulseStakeYieldHearts = selectedActiveStakeRows
+    .filter((row) => row.chain.key === "pulsechain")
+    .reduce((total, row) => total + estimateStakeYieldHearts(row), 0n);
+  const selectedEthereumStakeYieldHearts = selectedActiveStakeRows
+    .filter((row) => row.chain.key === "ethereum")
+    .reduce((total, row) => total + estimateStakeYieldHearts(row), 0n);
   const selectedStakedPulseHexAmount = Number(ethers.formatUnits(selectedStakedPulseHexHearts, 8));
   const selectedStakedEHexAmount = Number(ethers.formatUnits(selectedStakedEHexHearts, 8));
   const selectedStakedYieldAmount = Number(ethers.formatUnits(selectedStakedYieldHearts, 8));
@@ -2936,7 +3008,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   const moonMathMultiple = moonMathLiveDriverPrice > 0 && safePdaiTargetPrice > 0
     ? safePdaiTargetPrice / moonMathLiveDriverPrice
     : 0;
-  const moonMathRows = MOON_MATH_TOKENS.map((token) => {
+  const coreMoonMathRows = MOON_MATH_TOKENS.filter((token) => !moonMathHidden.includes(token.key)).map((token) => {
     const holdingRows = selectedHoldingRows.filter((row) => token.priceKeys.includes(row.priceKey));
     const liquidAmount = holdingRows.reduce((total, row) => total + Number(row.amount || 0), 0);
     const livePrice = getMoonMathLivePrice(token, holdingRows);
@@ -2973,9 +3045,25 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
           : estimatedTargetPrice;
     const exposure = liquidAmount + extraStakeAmount;
     const targetMultiple = livePrice > 0 ? targetPrice / livePrice : 0;
+    // HEX/eHEX cards break the position down: liquid vs staked principal vs est. yield.
+    const isHexCard = token.key === "hex" || token.key === "ehex";
+    const stakedPrincipalAmount = token.key === "hex"
+      ? Number(ethers.formatUnits(selectedPulseStakePrincipalHearts, 8))
+      : token.key === "ehex"
+        ? Number(ethers.formatUnits(selectedEthereumStakePrincipalHearts, 8))
+        : 0;
+    const stakeYieldAmount = token.key === "hex"
+      ? Number(ethers.formatUnits(selectedPulseStakeYieldHearts, 8))
+      : token.key === "ehex"
+        ? Number(ethers.formatUnits(selectedEthereumStakeYieldHearts, 8))
+        : 0;
 
     return {
       ...token,
+      showStakeSplit: isHexCard,
+      liquidAmount,
+      stakedPrincipalAmount,
+      stakeYieldAmount,
       currentMcap,
       effectiveTargetMcap,
       estimatedTargetPrice,
@@ -2988,6 +3076,49 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       targetValue: exposure * targetPrice
     };
   });
+  // User-added moon coins: priced by the market feed (matched by address), holdings summed
+  // by address across all row kinds (curated, custom, discovered), target driven by an
+  // editable mcap. They flow into the same totals as the core set.
+  const customMoonMathRows = moonMathCustomTokens.map((entry) => {
+    const addressLower = entry.address.toLowerCase();
+    const key = `moon-${addressLower}`;
+    const marketRow = marketRows.find(
+      (row) => row.address && String(row.address).toLowerCase() === addressLower && row.chain?.key !== "ethereum"
+    );
+    const holdingRows = selectedHoldingRows.filter(
+      (row) => String(row.address || "").toLowerCase() === addressLower
+    );
+    const liquidAmount = holdingRows.reduce((total, row) => total + Number(row.amount || 0), 0);
+    const livePrice = Number(marketRow?.priceUsd) > 0
+      ? Number(marketRow.priceUsd)
+      : (holdingRows.find((row) => row.priceUsd > 0)?.priceUsd || 0);
+    const liveValue = holdingRows.reduce((total, row) => total + Number(row.valueUsd || 0), 0);
+    const currentMcap = Number(marketRow?.marketCap) > 0 ? Number(marketRow.marketCap) : 0;
+    const effectiveTargetMcap = parseMcapValue(moonMathMcapOverrides[key]) ?? MOON_MATH_CUSTOM_DEFAULT_TARGET_MCAP;
+    const targetPrice = livePrice > 0 && currentMcap > 0 ? livePrice * (effectiveTargetMcap / currentMcap) : 0;
+    const targetMultiple = livePrice > 0 && targetPrice > 0 ? targetPrice / livePrice : 0;
+
+    return {
+      key,
+      address: entry.address,
+      symbol: marketRow?.symbol || `${entry.address.slice(0, 6)}…`,
+      name: marketRow?.name || "Custom coin",
+      icon: marketRow?.icon || "",
+      targetMcap: MOON_MATH_CUSTOM_DEFAULT_TARGET_MCAP,
+      currentMcap,
+      effectiveTargetMcap,
+      estimateMultiple: targetMultiple,
+      estimatedTargetPrice: targetPrice,
+      exposure: liquidAmount,
+      livePrice,
+      liveValue,
+      targetMultiple,
+      targetPrice,
+      targetValue: liquidAmount * targetPrice,
+      customMoon: true
+    };
+  });
+  const moonMathRows = [...coreMoonMathRows, ...customMoonMathRows];
   const moonMathLiveCoreValue = moonMathRows.reduce((total, row) => total + row.liveValue, 0);
   const moonMathProjectedCoreValue = moonMathRows.reduce((total, row) => total + row.targetValue, 0);
   const moonMathNonCoreValue = Math.max(0, portfolioTotalUsd - moonMathLiveCoreValue);
@@ -3017,9 +3148,21 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   }, [savedWallets, portfolioAddresses]);
 
   // Built-ins first so they win the dedupe and keep their curated symbol/icon/decimals.
+  // Moon math custom coins ride the same market feed for price/mcap/symbol resolution.
   const allMarketTokens = useMemo(
-    () => dedupeTokensByIdentity([...MARKET_TOKENS, ...customCoreTokens]),
-    [customCoreTokens]
+    () => dedupeTokensByIdentity([
+      ...MARKET_TOKENS,
+      ...customCoreTokens,
+      ...moonMathCustomTokens.map((entry) => ({
+        key: `moon-${entry.address.toLowerCase()}`,
+        symbol: "",
+        name: "",
+        chainKey: "pulsechain",
+        address: entry.address,
+        custom: true
+      }))
+    ]),
+    [customCoreTokens, moonMathCustomTokens]
   );
   // User-added core tokens are scanned for balances too, otherwise they'd show a price but never
   // appear in holdings. They carry no decimals, so those resolve on-chain during the scan.
@@ -4884,6 +5027,9 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
     setCustomTokenError("");
   }
 
+  // Every core tracker card is removable: user-added tokens delete, promoted built-ins
+  // unpromote, and default cards hide (restorable) — the defaults list itself is never
+  // rewritten, so future default additions still show up.
   function removeCustomCoreToken(key) {
     if (coreBoardExtras.includes(key)) {
       const nextExtras = coreBoardExtras.filter((extraKey) => extraKey !== key);
@@ -4892,9 +5038,129 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
       return;
     }
 
-    const next = customCoreTokens.filter((token) => token.key !== key);
-    setCustomCoreTokens(next);
-    saveCustomCoreTokens(next);
+    if (customCoreTokens.some((token) => token.key === key)) {
+      const next = customCoreTokens.filter((token) => token.key !== key);
+      setCustomCoreTokens(next);
+      saveCustomCoreTokens(next);
+      return;
+    }
+
+    if (CORE_TRACKER_KEYS.includes(key) && !coreBoardHidden.includes(key)) {
+      const nextHidden = [...coreBoardHidden, key];
+      setCoreBoardHidden(nextHidden);
+      saveStoredStringList(CORE_BOARD_HIDDEN_STORAGE_KEY, nextHidden);
+    }
+  }
+
+  function restoreCoreBoardDefaults() {
+    setCoreBoardHidden([]);
+    saveStoredStringList(CORE_BOARD_HIDDEN_STORAGE_KEY, []);
+  }
+
+  // Accepts a contract address OR a symbol ("pnas", "$hdrn"). Symbols resolve through the
+  // curated list first, then live market rows, then the wallet's discovered tokens.
+  function resolveTokenAddressInput(rawInput) {
+    const raw = rawInput.trim().replace(/^\$/, "");
+
+    if (ethers.isAddress(raw)) {
+      return ethers.getAddress(raw);
+    }
+
+    const symbolLower = raw.toLowerCase();
+
+    if (!symbolLower || symbolLower.length > 20) {
+      return null;
+    }
+
+    const curated = MARKET_TOKENS.find(
+      (token) => token.chainKey === "pulsechain" && String(token.symbol).toLowerCase() === symbolLower
+    );
+
+    if (curated) {
+      return ethers.getAddress(curated.address);
+    }
+
+    const market = marketRows.find(
+      (row) => row.chain?.key === "pulsechain" && row.address && String(row.symbol).toLowerCase() === symbolLower
+    );
+
+    if (market) {
+      try {
+        return ethers.getAddress(market.address);
+      } catch {
+        return null;
+      }
+    }
+
+    const holding = portfolioHoldings.find(
+      (row) => row.chain?.key === "pulsechain" && row.address && String(row.symbol).toLowerCase() === symbolLower
+    );
+
+    if (holding) {
+      try {
+        return ethers.getAddress(holding.address);
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  function addMoonMathToken() {
+    const address = resolveTokenAddressInput(moonMathTokenInput);
+
+    if (!address) {
+      setMoonMathTokenError("No match — paste a PulseChain contract address, or a symbol from your coins.");
+      return;
+    }
+    const addressLower = address.toLowerCase();
+
+    if (moonMathCustomTokens.some((entry) => entry.address.toLowerCase() === addressLower)) {
+      setMoonMathTokenError("Already in your moon math set.");
+      return;
+    }
+
+    const coreMoonAddresses = new Set(
+      MOON_MATH_TOKENS
+        .map((token) => MARKET_TOKENS.find((market) => market.key === token.marketKey)?.address)
+        .filter(Boolean)
+        .map((coreAddress) => String(coreAddress).toLowerCase())
+    );
+
+    if (coreMoonAddresses.has(addressLower)) {
+      setMoonMathTokenError("That coin is already in the core moon math set.");
+      return;
+    }
+
+    const next = [...moonMathCustomTokens, { address }];
+    setMoonMathCustomTokens(next);
+    saveMoonMathCustomTokens(next);
+    setMoonMathTokenInput("");
+    setMoonMathTokenError("");
+  }
+
+  // Custom moon coins delete; core moon coins hide (restorable).
+  function removeMoonMathRow(row) {
+    if (row.customMoon) {
+      const next = moonMathCustomTokens.filter(
+        (entry) => entry.address.toLowerCase() !== String(row.address).toLowerCase()
+      );
+      setMoonMathCustomTokens(next);
+      saveMoonMathCustomTokens(next);
+      return;
+    }
+
+    if (!moonMathHidden.includes(row.key)) {
+      const nextHidden = [...moonMathHidden, row.key];
+      setMoonMathHidden(nextHidden);
+      saveStoredStringList(MOON_MATH_HIDDEN_STORAGE_KEY, nextHidden);
+    }
+  }
+
+  function restoreMoonMathDefaults() {
+    setMoonMathHidden([]);
+    saveStoredStringList(MOON_MATH_HIDDEN_STORAGE_KEY, []);
   }
 
   // One verdict per token: hide, demote, or trust. Applying any verdict clears the others.
@@ -5215,7 +5481,11 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
   }
 
   function renderMarketBoard() {
-    const coreTrackerRows = [...new Set([...CORE_TRACKER_KEYS, ...coreBoardExtras, ...customCoreTokens.map((token) => token.key)])]
+    const coreTrackerRows = [...new Set([
+      ...CORE_TRACKER_KEYS.filter((key) => !coreBoardHidden.includes(key)),
+      ...coreBoardExtras,
+      ...customCoreTokens.map((token) => token.key)
+    ])]
       .map((key) => {
         const token = allMarketTokens.find((item) => item.key === key);
         if (!token) return null;
@@ -5259,7 +5529,6 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
               {pagedCoreTrackerRows.map(({ token, row }) => {
                 const changeClass = Number(row.change24h || 0) >= 0 ? "positive" : "negative";
                 const accent = tokenAccentColor(token.key, row.symbol);
-                const removable = token.custom || coreBoardExtras.includes(token.key);
 
                 return (
                   <article className="marketCard" key={token.key} style={{ "--accent": accent }}>
@@ -5274,16 +5543,18 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                       <small>{row.name} / {row.chain.shortLabel}</small>
                     </div>
                   </div>
-                  {token.key === "eth" ? (
-                    <button
-                      className={includeEthMarketTotals ? "marketTotalToggle isIncluded" : "marketTotalToggle"}
-                      type="button"
-                      onClick={() => setIncludeEthMarketTotals((current) => !current)}
-                      title={includeEthMarketTotals ? "Remove ETH liquidity and volume from totals" : "Add ETH liquidity and volume to totals"}
-                    >
-                      {includeEthMarketTotals ? "In totals" : "Add totals"}
-                    </button>
-                  ) : removable ? (
+                  <div className="marketCardHeaderActions">
+                    {row.note && <em>{row.note}</em>}
+                    {token.key === "eth" && (
+                      <button
+                        className={includeEthMarketTotals ? "marketTotalToggle isIncluded" : "marketTotalToggle"}
+                        type="button"
+                        onClick={() => setIncludeEthMarketTotals((current) => !current)}
+                        title={includeEthMarketTotals ? "Remove ETH liquidity and volume from totals" : "Add ETH liquidity and volume to totals"}
+                      >
+                        {includeEthMarketTotals ? "In totals" : "Add totals"}
+                      </button>
+                    )}
                     <button
                       className="marketRemoveToken"
                       type="button"
@@ -5293,9 +5564,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                     >
                       <Trash2 size={13} aria-hidden="true" />
                     </button>
-                  ) : (
-                    row.note && <em>{row.note}</em>
-                  )}
+                  </div>
                 </header>
                 <strong>{formatUsd(row.priceUsd, 8)}</strong>
                 <div className="marketMetrics">
@@ -5364,6 +5633,11 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                 Track
               </button>
             </div>
+            {coreBoardHidden.length > 0 && (
+              <button type="button" className="restoreHiddenTokens" onClick={restoreCoreBoardDefaults}>
+                Restore {coreBoardHidden.length} removed default card{coreBoardHidden.length === 1 ? "" : "s"}
+              </button>
+            )}
             {customTokenError && <p className="marketStatusLine">{customTokenError}</p>}
             {marketStatus && <p className="marketStatusLine">{marketStatus}</p>}
           </>
@@ -5545,7 +5819,18 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                             {targetMode && <small>{targetMode}</small>}
                           </div>
                         </div>
-                        {multiplierLabel && <span className="moonMathMultiplier">{multiplierLabel}</span>}
+                        <div className="marketCardHeaderActions">
+                          {multiplierLabel && <span className="moonMathMultiplier">{multiplierLabel}</span>}
+                          <button
+                            className="marketRemoveToken"
+                            type="button"
+                            onClick={() => removeMoonMathRow(row)}
+                            title="Remove this coin from moon math"
+                            aria-label={`Remove ${row.symbol} from moon math`}
+                          >
+                            <Trash2 size={12} aria-hidden="true" />
+                          </button>
+                        </div>
                       </div>
                       {row.targetMcap ? (
                         <>
@@ -5573,6 +5858,20 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                           />
                         </label>
                       )}
+                      <div className="moonMathHoldings">
+                        <span>hold <b>{displayHexAmount(formatCompactNumber(row.exposure))}</b></span>
+                        <span>now <b>{displayHexAmount(formatCompactUsd(row.liveValue))}</b></span>
+                        <span className="moonMathHoldingsTarget">moon <b>{displayHexAmount(formatCompactUsd(row.targetValue))}</b></span>
+                        {row.showStakeSplit && (
+                          <>
+                            <span>liquid <b>{displayHexAmount(formatCompactNumber(row.liquidAmount))}</b></span>
+                            <span>staked <b>{displayHexAmount(formatCompactNumber(row.stakedPrincipalAmount))}</b></span>
+                            <span title="Estimated yield accrued on active stakes so far">
+                              yield <b className="isYield">{displayHexAmount(formatCompactNumber(row.stakeYieldAmount))}</b>
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </article>
                   );
                 })}
@@ -5586,7 +5885,7 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                 <article>
                   <span>moon set target value</span>
                   <strong>{displayHexAmount(formatCompactUsd(moonMathProjectedCoreValue))}</strong>
-                  <small>pDAI, HEX, PLS, PLSX, INC, ICSA, PRVX, eHEX, ETH; HEX/eHEX stakes {includeStakeYield ? "include estimated yield" : "principal only"}</small>
+                  <small>pDAI, HEX, PLS, PLSX, INC, ICSA, PRVX, eHEX, ETH{customMoonMathRows.length > 0 ? ` + ${customMoonMathRows.length} custom coin${customMoonMathRows.length === 1 ? "" : "s"}` : ""}; HEX/eHEX stakes {includeStakeYield ? "include estimated yield" : "principal only"}</small>
                 </article>
                 <article>
                   <span>non-core live value</span>
@@ -5618,6 +5917,31 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                   <small className="moonMathShareNote">privacy on — shares multiples only, no dollar amounts</small>
                 )}
               </div>
+
+              <div className="marketAddTokenRow">
+                <input
+                  value={moonMathTokenInput}
+                  onChange={(event) => {
+                    setMoonMathTokenInput(event.target.value.trim());
+                    setMoonMathTokenError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") addMoonMathToken();
+                  }}
+                  placeholder="Add a coin — symbol (pnas) or 0x address"
+                  spellCheck={false}
+                />
+                <button type="button" onClick={addMoonMathToken}>
+                  <Plus size={14} aria-hidden="true" />
+                  Add coin
+                </button>
+              </div>
+              {moonMathHidden.length > 0 && (
+                <button type="button" className="restoreHiddenTokens" onClick={restoreMoonMathDefaults}>
+                  Restore {moonMathHidden.length} removed moon coin{moonMathHidden.length === 1 ? "" : "s"}
+                </button>
+              )}
+              {moonMathTokenError && <p className="marketStatusLine">{moonMathTokenError}</p>}
             </div>
           )}
         </section>
@@ -5680,6 +6004,18 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                     </div>
                     {tokenActionTarget === rowKey && (
                       <div className="tokenActionMenu" onClick={(event) => event.stopPropagation()}>
+                        {row.address && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              copyTextToClipboard(row.address);
+                              setTokenActionTarget(null);
+                            }}
+                          >
+                            <Copy size={13} aria-hidden="true" />
+                            Copy contract address
+                          </button>
+                        )}
                         {row.discovered ? (
                           <>
                             <button
@@ -5775,6 +6111,18 @@ export default function StakeTracker({ view: initialView = "portfolio" }) {
                         <strong>{displayHexAmount(row.amount.toLocaleString(undefined, { maximumFractionDigits: row.amount >= 1 ? 4 : 8 }))}</strong>
                         {tokenActionTarget === rowKey && (
                           <div className="tokenActionMenu" onClick={(event) => event.stopPropagation()}>
+                            {row.address && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  copyTextToClipboard(row.address);
+                                  setTokenActionTarget(null);
+                                }}
+                              >
+                                <Copy size={13} aria-hidden="true" />
+                                Copy contract address
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {

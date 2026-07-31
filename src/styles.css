@@ -1252,6 +1252,43 @@ dd {
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent));
 }
 
+/* Per-coin holdings strip: how much you hold, worth now, worth at target. */
+.moonMathHoldings {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.moonMathHoldings span {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid rgba(214, 199, 255, 0.08);
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: #9a8fb8;
+  background: rgba(6, 9, 20, 0.6);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.moonMathHoldings b {
+  color: #f3edff;
+  font-weight: 700;
+}
+
+.moonMathHoldings .moonMathHoldingsTarget {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.moonMathHoldings .moonMathHoldingsTarget b {
+  color: var(--accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.moonMathHoldings b.isYield {
+  color: #2fe08a;
+}
+
 .moonMathTokenHeader {
   display: flex;
   min-width: 0;
@@ -2200,6 +2237,13 @@ dd {
   border-radius: 999px;
   padding: 3px 6px;
   font-style: normal;
+}
+
+.marketCardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 .marketTotalToggle {
