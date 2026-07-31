@@ -1,0 +1,17 @@
+{
+  "name": "HEX Suite — HEX & PulseChain Portfolio Tracker",
+  "short_name": "HEX Suite",
+  "description": "Client-side HEX & PulseChain portfolio tracker. Stakes, moon math, onchain history.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070312",
+  "theme_color": "#070312",
+  "icons": [
+    {
+      "src": "/token-icons/phex.png",
+      "sizes": "160x160",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

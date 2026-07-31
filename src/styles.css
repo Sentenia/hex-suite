@@ -1338,6 +1338,7 @@ dd {
   display: flex;
   flex-direction: column;
   min-width: 200px;
+  max-width: calc(100vw - 40px);
   padding: 4px;
   border: 1px solid rgba(214, 199, 255, 0.25);
   border-radius: 8px;
@@ -1451,6 +1452,46 @@ dd {
   background: rgba(214, 199, 255, 0.1);
 }
 
+.appCrashScreen {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: #070312;
+  color: #f3edff;
+  text-align: center;
+}
+
+.appCrashScreen p {
+  max-width: 420px;
+  color: #d6c7ff;
+  line-height: 1.5;
+}
+
+.appCrashScreen button {
+  justify-self: center;
+  padding: 10px 22px;
+  border: 1px solid rgba(126, 224, 163, 0.45);
+  border-radius: 8px;
+  background: rgba(126, 224, 163, 0.1);
+  color: #7ee0a3;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.appCrashScreen details {
+  color: #9a8fb8;
+  font-size: 0.72rem;
+}
+
+.appCrashScreen pre {
+  max-width: min(600px, 90vw);
+  overflow-x: auto;
+  text-align: left;
+  font-size: 0.64rem;
+}
+
 .moonMathShareRow {
   display: flex;
   align-items: center;
@@ -1495,7 +1536,7 @@ dd {
   z-index: 30;
   display: grid;
   gap: 8px;
-  width: 300px;
+  width: min(300px, calc(100vw - 32px));
   padding: 12px;
   border: 1px solid rgba(214, 199, 255, 0.25);
   border-radius: 8px;
