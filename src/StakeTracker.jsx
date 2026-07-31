@@ -116,10 +116,47 @@ const PDAI_TARGET_PRICE_STORAGE_KEY = "pledge-pdai-target-price";
 const MOON_MATH_TARGET_OVERRIDES_STORAGE_KEY = "pledge-moon-math-target-overrides";
 const MOON_MATH_MCAP_OVERRIDES_STORAGE_KEY = "pledge-moon-math-mcap-overrides";
 const CUSTOM_CORE_TOKENS_STORAGE_KEY = "pledge-custom-core-tokens-v1";
+// Built-in tokens (priced via MARKET_TOKENS) the user promoted onto the Core trackers
+// board. Distinct from custom tokens: these already have curated symbols/icons.
+const CORE_BOARD_EXTRAS_STORAGE_KEY = "pledge-core-board-extras-v1";
+const CORE_TRACKER_PAGE_SIZE = 10;
 const TSHARE_HISTORY_ENDPOINTS = {
   ethereum: "https://hexdailystats.com/fulldata",
   pulsechain: "https://hexdailystats.com/fulldatapulsechain"
 };
+// Per-token neon accent: each core card glows in its token's brand color. Unknown tokens
+// get a stable hue hashed from their symbol so custom additions still look intentional.
+const TOKEN_ACCENT_COLORS = {
+  pdai: "#f7c948",
+  phex: "#ff2d9e",
+  hex: "#ff2d9e",
+  ehex: "#ff7847",
+  pehex: "#ff7847",
+  pls: "#b04bff",
+  pls_native: "#b04bff",
+  plsx: "#2fe08a",
+  inc: "#57e389",
+  icsa: "#38cfff",
+  prvx: "#8f7bff",
+  eth: "#6ea8ff",
+  hdrn: "#9aa7ff",
+  atropa: "#c86bff"
+};
+
+function tokenAccentColor(key, symbol) {
+  if (TOKEN_ACCENT_COLORS[key]) {
+    return TOKEN_ACCENT_COLORS[key];
+  }
+
+  let hash = 0;
+
+  for (const char of String(symbol || key || "?")) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 360;
+  }
+
+  return `hsl(${hash} 85% 62%)`;
+}
+
 const SOURCE_REPO_URL = "https://github.com/Sentenia/hex-suite";
 // Vercel injects the deployed commit SHA (system env vars exposed to Vite builds), so the
 // audit prompt pins the EXACT code this deployment was built from, not just the repo.
@@ -469,6 +506,23 @@ function loadCustomCoreTokens() {
       .filter((token) => !BUILT_IN_TOKEN_IDENTITIES.has(tokenIdentity(token)));
   } catch {
     return [];
+  }
+}
+
+function loadCoreBoardExtras() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CORE_BOARD_EXTRAS_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((key) => typeof key === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCoreBoardExtras(keys) {
+  try {
+    window.localStorage.setItem(CORE_BOARD_EXTRAS_STORAGE_KEY, JSON.stringify(keys));
+  } catch {
+    // Private mode etc. — additions still work for this session.
   }
 }
 
@@ -2217,6 +2271,8 @@ export default function StakeTracker({ view = "portfolio" }) {
   const [marketRows, setMarketRows] = useState([]);
   const [marketStatus, setMarketStatus] = useState("");
   const [customCoreTokens, setCustomCoreTokens] = useState(loadCustomCoreTokens);
+  const [coreBoardExtras, setCoreBoardExtras] = useState(loadCoreBoardExtras);
+  const [coreTrackerPage, setCoreTrackerPage] = useState(0);
   const [customTokenInput, setCustomTokenInput] = useState("");
   const [customTokenError, setCustomTokenError] = useState("");
   const [portfolioHoldings, setPortfolioHoldings] = useState(() => cachedHoldings?.rows || []);
@@ -4754,8 +4810,23 @@ export default function StakeTracker({ view = "portfolio" }) {
     const candidate = { key: `custom-${address.toLowerCase()}`, symbol: "", name: "", chainKey: "pulsechain", address, custom: true };
     const identity = tokenIdentity(candidate);
 
-    if (BUILT_IN_TOKEN_IDENTITIES.has(identity)) {
-      setCustomTokenError("Already tracked — this token is built in.");
+    // A built-in token that isn't on the board yet gets promoted onto it — with its
+    // curated symbol and icon — instead of being rejected for being known.
+    const builtIn = MARKET_TOKENS.find(
+      (token) => token.chainKey === "pulsechain" && String(token.address).toLowerCase() === address.toLowerCase()
+    );
+
+    if (builtIn) {
+      if (CORE_TRACKER_KEYS.includes(builtIn.key) || coreBoardExtras.includes(builtIn.key)) {
+        setCustomTokenError("Already on the board.");
+        return;
+      }
+
+      const nextExtras = [...coreBoardExtras, builtIn.key];
+      setCoreBoardExtras(nextExtras);
+      saveCoreBoardExtras(nextExtras);
+      setCustomTokenInput("");
+      setCustomTokenError("");
       return;
     }
 
@@ -4772,6 +4843,13 @@ export default function StakeTracker({ view = "portfolio" }) {
   }
 
   function removeCustomCoreToken(key) {
+    if (coreBoardExtras.includes(key)) {
+      const nextExtras = coreBoardExtras.filter((extraKey) => extraKey !== key);
+      setCoreBoardExtras(nextExtras);
+      saveCoreBoardExtras(nextExtras);
+      return;
+    }
+
     const next = customCoreTokens.filter((token) => token.key !== key);
     setCustomCoreTokens(next);
     saveCustomCoreTokens(next);
@@ -5095,13 +5173,19 @@ export default function StakeTracker({ view = "portfolio" }) {
   }
 
   function renderMarketBoard() {
-    const coreTrackerRows = [...CORE_TRACKER_KEYS, ...customCoreTokens.map((token) => token.key)]
+    const coreTrackerRows = [...new Set([...CORE_TRACKER_KEYS, ...coreBoardExtras, ...customCoreTokens.map((token) => token.key)])]
       .map((key) => {
         const token = allMarketTokens.find((item) => item.key === key);
         if (!token) return null;
         return { token, row: marketRows.find((item) => item.key === key) || marketRowFromPair(token, null) };
       })
       .filter(Boolean);
+    const coreTrackerPageCount = Math.max(1, Math.ceil(coreTrackerRows.length / CORE_TRACKER_PAGE_SIZE));
+    const safeCoreTrackerPage = Math.min(Math.max(coreTrackerPage, 0), coreTrackerPageCount - 1);
+    const pagedCoreTrackerRows = coreTrackerRows.slice(
+      safeCoreTrackerPage * CORE_TRACKER_PAGE_SIZE,
+      safeCoreTrackerPage * CORE_TRACKER_PAGE_SIZE + CORE_TRACKER_PAGE_SIZE
+    );
 
     return (
       <article className="stakePanel marketPanel">
@@ -5130,11 +5214,13 @@ export default function StakeTracker({ view = "portfolio" }) {
             </div>
 
             <div className="marketGrid">
-              {coreTrackerRows.map(({ token, row }) => {
+              {pagedCoreTrackerRows.map(({ token, row }) => {
                 const changeClass = Number(row.change24h || 0) >= 0 ? "positive" : "negative";
+                const accent = tokenAccentColor(token.key, row.symbol);
+                const removable = token.custom || coreBoardExtras.includes(token.key);
 
                 return (
-                  <article className="marketCard" key={token.key}>
+                  <article className="marketCard" key={token.key} style={{ "--accent": accent }}>
                 <header>
                   <div className="marketTokenIdentity">
                     <TokenAvatar icon={row.icon} symbol={row.symbol} />
@@ -5152,7 +5238,7 @@ export default function StakeTracker({ view = "portfolio" }) {
                     >
                       {includeEthMarketTotals ? "In totals" : "Add totals"}
                     </button>
-                  ) : token.custom ? (
+                  ) : removable ? (
                     <button
                       className="marketRemoveToken"
                       type="button"
@@ -5186,6 +5272,35 @@ export default function StakeTracker({ view = "portfolio" }) {
             );
           })}
         </div>
+            {coreTrackerPageCount > 1 && (
+              <div className="portfolioTokenPager">
+                <button
+                  type="button"
+                  onClick={() => setCoreTrackerPage(0)}
+                  disabled={safeCoreTrackerPage === 0}
+                  aria-label="First trackers page"
+                >
+                  &laquo;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoreTrackerPage((current) => Math.max(0, current - 1))}
+                  disabled={safeCoreTrackerPage === 0}
+                  aria-label="Previous trackers page"
+                >
+                  &lt;
+                </button>
+                <span>Page {safeCoreTrackerPage + 1} / {coreTrackerPageCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setCoreTrackerPage((current) => Math.min(coreTrackerPageCount - 1, current + 1))}
+                  disabled={safeCoreTrackerPage >= coreTrackerPageCount - 1}
+                  aria-label="Next trackers page"
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
             <div className="marketAddTokenRow">
               <input
                 value={customTokenInput}
@@ -5372,7 +5487,11 @@ export default function StakeTracker({ view = "portfolio" }) {
                     : `${row.targetMultiple.toLocaleString(undefined, { maximumFractionDigits: row.targetMultiple >= 100 ? 0 : 1 })}x`;
 
                   return (
-                    <article className="moonMathTargetBox" key={`moon-target-${row.key}`}>
+                    <article
+                      className="moonMathTargetBox"
+                      key={`moon-target-${row.key}`}
+                      style={{ "--accent": tokenAccentColor(row.key, row.symbol) }}
+                    >
                       <div className="moonMathTokenHeader">
                         <div className="marketTokenIdentity">
                           <TokenAvatar icon={row.icon} symbol={row.symbol} />
@@ -5484,6 +5603,7 @@ export default function StakeTracker({ view = "portfolio" }) {
                   <article
                     className="portfolioHoldingRow isClickable"
                     key={`holding-total-${row.chain.key}-${row.symbol}-${row.priceKey}`}
+                    style={{ "--accent": tokenAccentColor(row.priceKey, row.symbol) }}
                     role="button"
                     tabIndex={0}
                     onClick={() => setTokenActionTarget((current) => (current === rowKey ? null : rowKey))}
@@ -5771,7 +5891,30 @@ export default function StakeTracker({ view = "portfolio" }) {
           <h1>{title}</h1>
           <span className="stakePageKicker">HEX SUITE</span>
         </div>
+        {renderWalletBar()}
         <div className="stakeHeaderMeta">
+          {[
+            { key: "phex", label: "pHEX", price: pulseHexPriceUsd },
+            { key: "ehex", label: "eHEX", price: ethereumHexPriceUsd }
+          ].map((entry) => {
+            const marketRow = marketRows.find((item) => item.key === entry.key);
+            const change = Number(marketRow?.change24h);
+
+            return (
+              <div
+                key={`header-price-${entry.key}`}
+                className="stakeHeaderGas stakeHeaderPrice"
+                style={{ "--accent": TOKEN_ACCENT_COLORS[entry.key] || "#ff2d9e" }}
+                aria-label={`${entry.label} price`}
+              >
+                <span>{entry.label}</span>
+                <strong>{entry.price > 0 ? formatUsd(entry.price, 6) : "—"}</strong>
+                <small className={Number.isFinite(change) ? (change >= 0 ? "positive" : "negative") : ""}>
+                  {Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}% 24h` : "live"}
+                </small>
+              </div>
+            );
+          })}
           <div className="stakeHeaderGas" aria-label="PulseChain gas tracker">
             <span>PulseChain gas</span>
             <strong>{pulseGasLabel}</strong>
@@ -5830,7 +5973,6 @@ export default function StakeTracker({ view = "portfolio" }) {
             )}
           </div>
         </div>
-        {renderWalletBar()}
       </header>
     );
   }

@@ -58,11 +58,28 @@ body {
   min-width: 320px;
   min-height: 100vh;
   color: var(--text-primary);
-  background:
-    radial-gradient(46% 34% at 84% -4%, rgba(255, 44, 180, 0.11), transparent 70%),
+  /* Deep-space navy with a faint starfield: two tiled star layers over nebula tints. */
+  background-image:
+    radial-gradient(1px 1px at 22% 34%, rgba(255, 255, 255, 0.5), transparent 100%),
+    radial-gradient(1px 1px at 68% 12%, rgba(255, 255, 255, 0.35), transparent 100%),
+    radial-gradient(1.5px 1.5px at 84% 66%, rgba(214, 199, 255, 0.4), transparent 100%),
+    radial-gradient(1px 1px at 42% 82%, rgba(255, 255, 255, 0.28), transparent 100%),
+    radial-gradient(1px 1px at 8% 58%, rgba(157, 213, 255, 0.32), transparent 100%),
+    radial-gradient(46% 34% at 84% -4%, rgba(255, 45, 158, 0.1), transparent 70%),
     radial-gradient(52% 40% at -10% 10%, rgba(139, 60, 255, 0.12), transparent 70%),
-    radial-gradient(50% 38% at 50% 112%, rgba(31, 213, 255, 0.06), transparent 70%),
-    var(--page-gradient);
+    radial-gradient(50% 38% at 50% 112%, rgba(47, 224, 138, 0.05), transparent 70%),
+    linear-gradient(180deg, #060a16 0%, #0a1122 45%, #070c18 100%);
+  background-size:
+    260px 260px,
+    340px 340px,
+    420px 420px,
+    300px 300px,
+    380px 380px,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  background-repeat: repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-attachment: fixed;
 }
 
@@ -807,12 +824,31 @@ dd {
 }
 
 .stakeTopbar {
+  /* Row 1: brand left, buy/connect-wallet right. Row 2: metric tiles, full width —
+     keeps the tiles from ever crowding the title or the wallet controls. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand wallet"
+    "meta meta";
   align-items: center;
-  gap: 24px;
+  gap: 14px 24px;
   min-height: 94px;
-  padding: 30px 0 26px;
+  padding: 30px 0 22px;
+}
+
+.stakeTopbar .stakeBrandLockup {
+  grid-area: brand;
+}
+
+.stakeTopbar .stakeWalletBar {
+  grid-area: wallet;
+}
+
+.stakeTopbar .stakeHeaderMeta {
+  grid-area: meta;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .stakeBrandLockup {
@@ -1168,18 +1204,29 @@ dd {
 }
 
 .moonMathTargetBox {
+  --accent: #ff2cb4;
   display: flex;
   min-width: 0;
   min-height: 132px;
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid rgba(214, 199, 255, 0.1);
-  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 12px;
   padding: 13px;
   background:
-    radial-gradient(90% 80% at 100% 0%, rgba(255, 44, 180, 0.12), transparent 54%),
-    rgba(7, 3, 18, 0.72);
+    radial-gradient(95% 85% at 100% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 58%),
+    rgba(6, 9, 20, 0.8);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.moonMathTargetBox .moonMathMultiplier {
+  color: var(--accent);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.moonMathTargetBox .marketTokenIdentity img {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent));
 }
 
 .moonMathTokenHeader {
@@ -1311,12 +1358,18 @@ dd {
 }
 
 .portfolioHoldingRow {
+  --accent: #9a8fb8;
   display: grid;
   grid-template-columns: minmax(190px, 1.3fr) repeat(3, minmax(110px, 0.7fr));
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
-  background: rgba(7, 3, 18, 0.74);
+  background: rgba(6, 9, 20, 0.78);
+  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.portfolioHoldingRow .marketTokenIdentity img {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .portfolioHoldingRow.isClickable,
@@ -1327,7 +1380,11 @@ dd {
 
 .portfolioHoldingRow.isClickable:hover,
 .unverifiedTokenRow.isClickable:hover {
-  background: rgba(24, 14, 46, 0.85);
+  background: rgba(14, 20, 38, 0.9);
+}
+
+.portfolioHoldingRow.isClickable:hover {
+  box-shadow: inset 0 0 22px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .tokenActionMenu {
@@ -1389,7 +1446,8 @@ dd {
   gap: 6px;
   padding: 10px 12px;
   border: 1px solid rgba(214, 199, 255, 0.1);
-  background: rgba(7, 3, 18, 0.5);
+  border-radius: 10px;
+  background: rgba(6, 9, 20, 0.5);
 }
 
 .portfolioHistoryHead {
@@ -1503,6 +1561,19 @@ dd {
 .moonMathShareNote {
   color: #9a8fb8;
   font-size: 0.66rem;
+}
+
+.stakeHeaderPrice strong {
+  color: var(--accent, #ff2d9e);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent, #ff2d9e) 40%, transparent);
+}
+
+.stakeHeaderPrice small.positive {
+  color: #2fe08a;
+}
+
+.stakeHeaderPrice small.negative {
+  color: #ff5c7a;
 }
 
 .verifySourceWrap {
@@ -1760,7 +1831,9 @@ dd {
 
 .unverifiedTokenSection {
   border: 1px solid rgba(214, 199, 255, 0.1);
-  background: rgba(7, 3, 18, 0.5);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(6, 9, 20, 0.5);
 }
 
 .unverifiedTokenSection summary {
@@ -1897,16 +1970,42 @@ dd {
 }
 
 .marketCard {
+  --accent: #ff2cb4;
   display: flex;
   min-height: 194px;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid rgba(214, 199, 255, 0.1);
-  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 12px;
   padding: 13px;
   background:
-    radial-gradient(90% 80% at 100% 0%, rgba(255, 44, 180, 0.12), transparent 54%),
-    rgba(7, 3, 18, 0.66);
+    radial-gradient(95% 85% at 100% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 58%),
+    rgba(6, 9, 20, 0.82);
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--accent) 14%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--accent) 5%, transparent);
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.marketCard:hover {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow:
+    0 0 30px color-mix(in srgb, var(--accent) 24%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+/* Big neon price, like the reference cards. */
+.marketCard > strong {
+  color: var(--accent);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.marketCard .marketTokenIdentity img {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .marketCard header,
@@ -2062,10 +2161,10 @@ dd {
 .marketMetrics span {
   min-width: 0;
   border: 1px solid rgba(214, 199, 255, 0.08);
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 6px;
   color: #9a8fb8;
-  background: rgba(16, 13, 11, 0.72);
+  background: rgba(6, 9, 20, 0.72);
   font-size: 0.66rem;
 }
 
@@ -2077,12 +2176,23 @@ dd {
   overflow-wrap: anywhere;
 }
 
+/* 24h change reads as a green/red signal chip, like the reference. */
+.marketMetrics .positive {
+  border-color: rgba(47, 224, 138, 0.35);
+  background: rgba(47, 224, 138, 0.08);
+}
+
+.marketMetrics .negative {
+  border-color: rgba(255, 92, 122, 0.35);
+  background: rgba(255, 92, 122, 0.08);
+}
+
 .marketMetrics .positive b {
-  color: #1fd5ff;
+  color: #2fe08a;
 }
 
 .marketMetrics .negative b {
-  color: #ff2cb4;
+  color: #ff5c7a;
 }
 
 .marketCard a {
@@ -2712,11 +2822,13 @@ dd {
 .stakePanel {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(214, 199, 255, 0.11);
-  border-radius: 4px;
+  border: 1px solid rgba(214, 199, 255, 0.12);
+  border-radius: 14px;
   padding: 24px;
-  background: rgba(16, 13, 11, 0.88);
-  box-shadow: 0 30px 80px -48px rgba(255, 44, 180, 0.42);
+  background: rgba(7, 11, 24, 0.86);
+  box-shadow:
+    0 30px 80px -48px rgba(255, 45, 158, 0.35),
+    0 0 24px rgba(139, 60, 255, 0.06);
 }
 
 .stakePanel::before {
